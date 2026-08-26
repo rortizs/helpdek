@@ -155,3 +155,6 @@ Desarrollo paso a paso
   -- 3. Crear un servicio en memoria para registrar tickets.
   -- 4. Escribir una prueba mínima.
   -- 5. Confirmar que la prueba pasa.
+
+ ## tarea semana 8
+  

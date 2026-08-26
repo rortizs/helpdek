@@ -13,5 +13,9 @@ class Ticket:
     requester_id: int
     status: TicketStatus = TicketStatus.OPEN
     assignee_id: int | None = None
-    created_at: datetime = field(default_factory=datetime.astimezone)
-    updated_at: datetime = field(default_factory=datetime.astimezone)
+    created_at: datetime = field(
+        default_factory=lambda: datetime.now().astimezone()
+    )
+    updated_at: datetime = field(
+        default_factory=lambda: datetime.now().astimezone()
+    )

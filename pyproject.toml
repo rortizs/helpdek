@@ -5,9 +5,9 @@ description = "A HelpDesk EDU application"
 requires-python = ">=3.11"
 dependencies = [] 
 
-[dependencies-groups]
+[dependency-groups]
 dev = ["pytest>=8.3"]
 
 [tool.pytest.ini_options]
-testpath = ["tests"]
+testpaths = ["tests"]
 pythonpath = ["."]

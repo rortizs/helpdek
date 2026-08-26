@@ -3,7 +3,7 @@ from app.models.entities import Ticket
 class TicketService:
     # initialize the ticket service with an empty list of tickets and a next_id counter
     def __init__(self) -> None:
-        self.tickets = list[Ticket] = []
+        self._tickets: list[Ticket] = []
         self.next_id = 1
     
     #create a new ticket
