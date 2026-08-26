@@ -116,3 +116,47 @@ git checkout -b develper
 git push -u origin develper 
 
 Por qué: developer será la rama de integración del curso. Cada avance semanal entra primero allí. Solo cuando una etapa esté validada se prepara un PR hacia main.
+
+## 2.9 Validación de la etapa 0
+``bash 
+git branch
+git remote -v
+git status
+``
+
+Debe observarse:
+  -- Rama local main creada.
+  -- Rama local developer creada.
+  -- Remoto origin configurado.
+  --Árbol limpio: working tree clean.
+
+## 2.10 Commit/PR de etapa 0
+Normalmente el primer push de main no requiere PR si el repo estaba vacío. A partir de aquí, sí trabajaremos con PRs.
+
+
+## 3. Desarrollo semana por semana
+ --Semana 7 - Encapsulamiento, listas y primer dominio
+ --Versión objetivo: v0.1
+ --Incremento: Crear las primeras clases del dominio y trabajar en memoria.
+
+ Resultado esperado
+Al finalizar, el proyecto tendrá modelos base User y Ticket, servicio en memoria, prueba mínima y primer PR funcional hacia developer.
+
+## Flujo Git de la semana
+``bash 
+git checkout developer
+git pull origin developer
+git checkout -b feature/week-7-encapsulamiento-listas-y-primer-dominio
+``
+
+Desarrollo paso a paso
+1.
+Crear vocabulario del dominio: roles, estados, categorías y prioridades.
+2.
+Crear entidades simples User y Ticket.
+3.
+Crear un servicio en memoria para registrar tickets.
+4.
+Escribir una prueba mínima.
+5.
+Confirmar que la prueba pasa.
