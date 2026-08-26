@@ -99,3 +99,20 @@ pythonpath = ["."]
 ## 2.6 Primer commit
 git statusgit add .git commit -m "chore: initialize project structure"
 Explicación: este commit no agrega funcionalidad. Por eso usa chore:. Guarda la estructura inicial del proyecto.
+
+
+## 2.7 Crear repositorio remoto y subir main
+Si se usará GitHub CLI:
+``bash 
+gh repo create TU_USUARIO/HelpDesk_EDU --public --source=. --remote=origin --push
+Si el repositorio ya fue creado en GitHub:
+``bash 
+git remote add origin https://github.com/TU_USUARIO/HelpDesk_EDU.gitgit 
+git push -u origin main
+
+## 2.8 Crear y subir developer 
+``bash 
+git checkout -b develper
+git push -u origin develper 
+
+Por qué: developer será la rama de integración del curso. Cada avance semanal entra primero allí. Solo cuando una etapa esté validada se prepara un PR hacia main.
