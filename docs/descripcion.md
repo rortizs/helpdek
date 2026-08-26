@@ -85,3 +85,17 @@ __pycache__
 **Por qué: Git debe guardar código fuente y documentos importantes, no entornos virtuales, bases locales, cachés ni secretos.**
 
 ## 2.5 pyproject.toml inicial
+[project]name = "helpdesk-edu"
+version = "0.1.0"
+description = "A teachable HelpDesk EDU application"
+requires-python = ">=3.12"
+dependencies = []
+[dependency-groups]
+dev = ["pytest>=8.3"]
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+## 2.6 Primer commit
+git statusgit add .git commit -m "chore: initialize project structure"
+Explicación: este commit no agrega funcionalidad. Por eso usa chore:. Guarda la estructura inicial del proyecto.
