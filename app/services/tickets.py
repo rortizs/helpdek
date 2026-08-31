@@ -74,6 +74,30 @@ class TicketService:
         ticket.updated_at = datetime.now().astimezone()
         return comment
 
+    def list_by_technician(self, technician_id: int) -> list[Ticket]:
+         return [
+             ticket
+             for ticket in self._tickets
+             if ticket.assignee_id == technician_id
+        ]
+        
+    def list_by_category(self, category: str) -> list[Ticket]:
+        return [
+            ticket
+            for ticket in self._tickets
+            if ticket.category == category
+        ]
+        
+    def list_by_status(self, status: str | TicketStatus) -> list[Ticket]:
+        if isinstance(status, str):
+            status = TicketStatus(status.lower())
+            
+        return [
+            ticket
+            for ticket in self._tickets
+            if ticket.status == status 
+        ]
+        
     def _require_ticket(self, ticket_id: int) -> Ticket:
         ticket = self.find_by_id(ticket_id)
         if ticket is None:
