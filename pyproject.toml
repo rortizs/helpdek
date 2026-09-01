@@ -1,0 +1,13 @@
+[project]
+name= "helpdesk-edu"
+version = "0.1.0"
+description = "A HelpDesk EDU application"
+requires-python = ">=3.11"
+dependencies = [] 
+
+[dependency-groups]
+dev = ["pytest>=8.3"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
