@@ -79,3 +79,12 @@ class TicketService:
         if ticket is None:
             raise ValueError(f"Ticket {ticket_id} was not found")
         return ticket
+    def list_by_technician(self, technician_id: int) -> list[Ticket]:
+        return [t for t in self._tickets if getattr(t, 'assignee_id', None) == technician_id]
+
+    def list_by_category(self, category: str) -> list[Ticket]:
+        return [t for t in self._tickets if str(t.category).lower() == category.lower()]
+
+    def list_by_status(self, status) -> list[Ticket]:
+        s_val = status.value if hasattr(status, 'value') else str(status)
+        return [t for t in self._tickets if (t.status.value if hasattr(t.status, 'value') else str(t.status)).lower() == s_val.lower()]
