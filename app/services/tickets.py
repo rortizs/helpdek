@@ -79,3 +79,44 @@ class TicketService:
         if ticket is None:
             raise ValueError(f"Ticket {ticket_id} was not found")
         return ticket
+
+    #tickets asignados a un tecnico
+    def list_by_technician(self, technician_id: int) -> list[Ticket]:
+        tickets_filtrados = []
+        for ticket in self._tickets:
+            if hasattr(ticket, 'assignee_id') and ticket.assignee_id == technician_id:
+                tickets_filtrados.append(ticket)
+        return tickets_filtrados
+
+
+
+    #tickets que pretenecen a su categoria
+    def list_by_category(self, category: str) -> list[Ticket]:
+        tickets_filtrados = []
+        for ticket in self._tickets:
+            if ticket.category == category:
+                tickets_filtrados.append(ticket)
+        return tickets_filtrados
+
+    #el estado del ticket
+    def list_by_status(self, status: str | TicketStatus) -> list[Ticket]:
+    
+        tickets_filtrados = []
+        
+        # se valida como viene el estado del ticket
+        if isinstance(status, TicketStatus):
+            estado_buscado = status.value
+        else:
+            estado_buscado = status
+            
+        for ticket in self._tickets:
+            #el estado del ticket actual
+            if isinstance(ticket.status, TicketStatus):
+                estado_ticket = ticket.status.value
+            else:
+                estado_ticket = ticket.status
+                
+            if estado_ticket == estado_buscado:
+                tickets_filtrados.append(ticket)
+                
+        return tickets_filtrados
