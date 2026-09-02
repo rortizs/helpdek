@@ -271,3 +271,38 @@ con esto el sistema separará dominio, respositorios y servicios. El almacenamie
 ```git
 git chetckout developer
 git pull origin developer #recuerde este comando permite traer todo lo que tenemos en el repositorio. 
+git checkout -b feature/week-9-abstraccion-repositorio-polimorfismo
+```
+
+## para los test en cada feature realizar las pruebas minimas
+```bash 
+ uv run pytest -q
+```
+
+## commit de la semana 
+```git 
+git status 
+git add . 
+git commit -m "feat(architecture): complete week 9 increment"
+git push -u origin feature/week-9-abstraccion-repositorios-polimorfismo
+```
+
+## Crear el Pull Request hacia develper 
+``` git 
+gh pr create --base developer --head feature/weei-9-abstraccion-repositorios-polimorfismo --title "feat(architecture): week 9 increment" --body "Week 9 increment. Includes source code, validation evidence, and acceptance checklist."
+```
+
+## validaciones o checklist
+Checklist del PR:
+☐ El PR sale de una rama feature/*.
+☐ La base del PR es developer.
+☐ Hay explicación de qué cambió.
+☐ Hay evidencia de validación.
+☐ No se subieron .env, .venv, bases locales ni secretos.
+
+## merge a la rama 
+``` git 
+git checkout developer 
+git pull origin developer 
+git branch --delete feature/week-9-abstraccion-repositorios-polimorfismo
+```
