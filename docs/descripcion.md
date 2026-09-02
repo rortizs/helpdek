@@ -284,7 +284,7 @@ git checkout -b feature/week-9-abstraccion-repositorio-polimorfismo
 git status 
 git add . 
 git commit -m "feat(architecture): complete week 9 increment"
-git push -u origin feature/week-9-abstraccion-repositorios-polimorfismo
+git push -u origin feature/week-9-abstraccion-repositorio-polimorfismo
 ```
 
 ## Crear el Pull Request hacia develper 
