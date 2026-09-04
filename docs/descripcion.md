@@ -25,7 +25,7 @@ git checkout -b feature/week-07-models
 
 ```bash
 git status
-git add . # agrega todo 
+git add . # agrega todo
 git commit -m "feat(models): add initial user and ticket domain"
 git push -u origin feature/week-07-models
 ```
@@ -133,7 +133,7 @@ gh repo create TU_USUARIO/HelpDesk_EDU --public --source=. --remote=origin --pus
 Si el repositorio ya fue creado en GitHub:
 
 ```bash
-git remote add origin https://github.com/TU_USUARIO/HelpDesk_EDU.gitgit 
+git remote add origin https://github.com/TU_USUARIO/HelpDesk_EDU.gitgit
 git push -u origin main
 ```
 
@@ -141,7 +141,7 @@ git push -u origin main
 
 ```bash
 git checkout -b develper
-git push -u origin develper 
+git push -u origin develper
 ```
 
 Por qué: developer será la rama de integración del curso. Cada avance semanal entra primero allí. Solo cuando una etapa esté validada se prepara un PR hacia main.
@@ -261,38 +261,44 @@ git commit -m "feat(domain): complete week 8 increment"
 git push -u origin feature/week-8-relaciones-practicas-tecnico-categoria
 ```
 
+
 ## Abstracción, repositorios, polimorfismo y excepciones
 
-## Incremente: Separar reglas de negocio de almacenamiento y manjear errores del dominio. 
-con esto el sistema separará dominio, respositorios y servicios. El almacenamiento en memoria quedará detrás de una abstracción. 
+## Incremente: Separar reglas de negocio de almacenamiento y manjear errores del dominio
 
-## Primero vamos a revisar el Status de nuestro flujo de git de la semana 
+con esto el sistema separará dominio, respositorios y servicios. El almacenamiento en memoria quedará detrás de una abstracción.
+
+## Primero vamos a revisar el Status de nuestro flujo de git de la semana
 
 ```git
 git chetckout developer
-git pull origin developer #recuerde este comando permite traer todo lo que tenemos en el repositorio. 
+git pull origin developer #recuerde este comando permite traer todo lo que tenemos en el repositorio.
 git checkout -b feature/week-9-abstraccion-repositorio-polimorfismo
 ```
 
 ## para los test en cada feature realizar las pruebas minimas
-```bash 
+
+```bash
  uv run pytest -q
 ```
 
-## commit de la semana 
-```git 
-git status 
-git add . 
+## commit de la semana
+
+```git
+git status
+git add .
 git commit -m "feat(architecture): complete week 9 increment"
 git push -u origin feature/week-9-abstraccion-repositorio-polimorfismo
 ```
 
-## Crear el Pull Request hacia develper 
-``` git 
+## Crear el Pull Request hacia develper
+
+``` git
 gh pr create --base developer --head feature/weei-9-abstraccion-repositorios-polimorfismo --title "feat(architecture): week 9 increment" --body "Week 9 increment. Includes source code, validation evidence, and acceptance checklist."
 ```
 
 ## validaciones o checklist
+
 Checklist del PR:
 ☐ El PR sale de una rama feature/*.
 ☐ La base del PR es developer.
@@ -300,9 +306,11 @@ Checklist del PR:
 ☐ Hay evidencia de validación.
 ☐ No se subieron .env, .venv, bases locales ni secretos.
 
-## merge a la rama 
-``` git 
-git checkout developer 
-git pull origin developer 
+## merge a la rama
+
+``` git
+git checkout developer
+git pull origin developer
 git branch --delete feature/week-9-abstraccion-repositorios-polimorfismo
 ```
+
