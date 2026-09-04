@@ -2,7 +2,7 @@ from datetime import datetime
 
 from app.models.assignments import Assignment
 from app.models.comments import Comment
-from app.models.entities import Ticket
+from app.models.entities import HistoryEvent, Ticket, User
 from app.models.enums import CATEGORIES, PRIORITIES, TicketStatus
 
 
@@ -65,6 +65,12 @@ class TicketService:
             technician_id=technician_id,
         )
         self._assignments.append(assignment)
+        self._record_history(
+            ticket=ticket,
+            action="assigned",
+            actor_id=technician_id,
+            details={"technician_id": technician_id},
+        )
         return assignment
 
     def add_comment(self, ticket_id: int, author_id: int, body: str) -> Comment:
@@ -79,7 +85,58 @@ class TicketService:
         self._comments.append(comment)
         ticket.comments.append(comment)
         ticket.updated_at = datetime.now().astimezone()
+        self._record_history(
+            ticket=ticket,
+            action="commented",
+            actor_id=author_id,
+            details={"comment_id": comment.id},
+        )
         return comment
+
+    def assigned_to(self, technician_id: int) -> list[Ticket]:
+        return [ticket for ticket in self._tickets if ticket.assignee_id == technician_id]
+
+    def change_status(
+        self,
+        ticket_id: int,
+        new_status: TicketStatus | str,
+        actor: User,
+    ) -> Ticket:
+        ticket = self._require_ticket(ticket_id)
+        if not actor.is_staff:
+            raise PermissionError("Only staff users can change ticket status")
+        if not ticket.is_open:
+            raise ValueError("Ticket is closed or cancelled")
+
+        previous_status = ticket.status
+        ticket.status = TicketStatus(new_status)
+        ticket.updated_at = datetime.now().astimezone()
+        self._record_history(
+            ticket=ticket,
+            action="status_changed",
+            actor_id=actor.id,
+            details={
+                "from_status": previous_status.value,
+                "to_status": ticket.status.value,
+            },
+        )
+        return ticket
+
+    def _record_history(
+        self,
+        ticket: Ticket,
+        action: str,
+        actor_id: int,
+        details: dict,
+    ) -> HistoryEvent:
+        event = HistoryEvent(
+            ticket_id=ticket.id,
+            actor_id=actor_id,
+            action=action,
+            details=details,
+        )
+        ticket.history.append(event)
+        return event
 
     def _require_ticket(self, ticket_id: int) -> Ticket:
         ticket = self.by_id(ticket_id)
