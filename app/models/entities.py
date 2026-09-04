@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
 
 from app.models.comments import Comment
 from app.models.enums import Role, TicketStatus
@@ -8,11 +7,20 @@ from app.models.enums import Role, TicketStatus
 
 @dataclass
 class HistoryEvent:
+    id: int
     ticket_id: int
     actor_id: int
-    action: str
-    details: dict[str, Any] = field(default_factory=dict)
+    event_type: str
+    detail: str = ""
     created_at: datetime = field(default_factory=lambda: datetime.now().astimezone())
+
+    @property
+    def action(self) -> str:
+        return self.event_type
+
+    @property
+    def details(self) -> str:
+        return self.detail
 
 
 @dataclass

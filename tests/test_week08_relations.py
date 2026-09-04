@@ -1,26 +1,20 @@
 import pytest
 
-from app.models.entities import User
+from app.domain.errors import PermissionDeniedError, TicketNotFoundError, ValidationError
 from app.models.enums import Role, TicketStatus
-from app.services.tickets import TicketService
 
 
-def user_service_class():
-    try:
-        from app.services.users import UserService
-    except ModuleNotFoundError:
-        pytest.fail("app.services.users.UserService is required")
-    return UserService
-
-
-def create_sample_ticket(service: TicketService, **overrides):
-    data = {
+def create_sample_ticket(service, requester=None, requester_id=1, **overrides):
+    data: dict[str, object] = {
         "title": "No puedo imprimir",
         "description": "La impresora no responde en laboratorio",
         "category": "Hardware",
         "priority": "Medium",
-        "requester_id": 1,
     }
+    if requester is not None:
+        data["requester"] = requester
+    else:
+        data["requester_id"] = requester_id
     data.update(overrides)
     return service.create(**data)
 
@@ -34,142 +28,182 @@ def test_category_model_has_identity_and_name():
     assert category.name == "Hardware"
 
 
-def test_assign_technician_updates_ticket_and_returns_assignment():
-    service = TicketService()
-    ticket = create_sample_ticket(service)
+def test_assign_updates_ticket_and_records_compatibility_assignment(world):
+    ticket = create_sample_ticket(world.tickets, requester=world.requester)
 
-    assignment = service.assign_technician(ticket_id=ticket.id, technician_id=2)
-
-    assert ticket.assignee_id == 2
-    assert assignment.ticket_id == ticket.id
-    assert assignment.technician_id == 2
-
-
-def test_add_comment_links_comment_to_ticket():
-    service = TicketService()
-    ticket = create_sample_ticket(service)
-
-    comment = service.add_comment(
+    updated = world.tickets.assign(ticket_id=ticket.id, technician_id=world.technician.id)
+    assignment = world.tickets.assign_technician(
         ticket_id=ticket.id,
-        author_id=2,
-        body="Se revisa el equipo durante el recreo.",
+        technician_id=world.technician.id,
+    )
+
+    assert updated is ticket
+    assert ticket.assignee_id == world.technician.id
+    assert assignment.ticket_id == ticket.id
+    assert assignment.technician_id == world.technician.id
+
+
+def test_comment_links_comment_to_ticket(world):
+    ticket = create_sample_ticket(world.tickets, requester=world.requester)
+
+    comment = world.tickets.comment(
+        ticket.id,
+        world.technician,
+        "Se revisa el equipo durante el recreo.",
     )
 
     assert comment.ticket_id == ticket.id
-    assert comment.author_id == 2
+    assert comment.author_id == world.technician.id
     assert comment.body == "Se revisa el equipo durante el recreo."
     assert ticket.comments == [comment]
 
 
-def test_assign_technician_rejects_unknown_ticket():
-    service = TicketService()
+def test_assign_rejects_unknown_ticket(world):
+    with pytest.raises(TicketNotFoundError) as error:
+        world.tickets.assign(ticket_id=99, technician_id=world.technician.id)
 
-    try:
-        service.assign_technician(ticket_id=99, technician_id=2)
-    except ValueError as error:
-        assert "Ticket 99" in str(error)
-    else:
-        raise AssertionError("Expected unknown ticket assignment to fail")
+    assert error.value.properties["ticket_id"] == 99
 
 
-def test_user_service_creates_users_with_normalized_unique_emails():
-    UserService = user_service_class()
-    service = UserService()
+def test_user_service_creates_users_with_normalized_unique_emails(user_repository):
+    from app.services.users import UserService
 
-    first = service.create(
-        name="Ana Técnica",
-        email="  ANA.TECNICA@School.edu  ",
+    service = UserService(user_repository)
+
+    first = service.register(
+        "  ANA.TECNICA@School.edu  ",
+        "Ana Técnica",
         role=Role.TECHNICIAN,
     )
     second = service.create(name="Bruno Solicitante", email="bruno@school.edu")
 
     assert first.id == 1
     assert second.id == 2
+    assert first.name == "Ana Técnica"
     assert first.email == "ana.tecnica@school.edu"
     assert second.role is Role.REQUESTER
-    assert service.by_id(first.id) is first
+    assert service.require(first.id) is first
     assert service.by_id(999) is None
-    with pytest.raises(ValueError, match="email"):
-        service.create(name="Duplicada", email="ana.tecnica@school.edu")
+    with pytest.raises(ValidationError, match="email"):
+        service.register(name="Duplicada", email="ana.tecnica@school.edu")
 
 
-def test_user_service_lists_technicians_and_user_knows_staff_role():
-    UserService = user_service_class()
-    service = UserService()
-
-    requester = service.create("Sofía", "sofia@school.edu", role=Role.REQUESTER)
-    technician = service.create("Tomás", "tomas@school.edu", role=Role.TECHNICIAN)
-    supervisor = service.create("Carla", "carla@school.edu", role=Role.SUPERVISOR)
+def test_user_service_lists_assignable_staff_in_repository_order(users):
+    requester = users.by_email("sofia@school.edu")
+    technician = users.by_email("tomas@school.edu")
+    supervisor = users.by_email("carla@school.edu")
 
     assert requester.is_staff is False
     assert technician.is_staff is True
     assert supervisor.is_staff is True
-    assert service.technicians() == [technician]
+    assert users.technicians() == [technician, supervisor]
 
 
-def test_assignment_and_comments_record_ticket_history():
-    service = TicketService()
-    ticket = create_sample_ticket(service)
+def test_assignment_and_comments_record_ticket_history(world):
+    ticket = create_sample_ticket(world.tickets, requester=world.requester)
 
-    service.assign_technician(ticket_id=ticket.id, technician_id=2)
-    service.add_comment(
-        ticket_id=ticket.id,
-        author_id=2,
-        body="Se revisa el equipo durante el recreo.",
+    world.tickets.assign(ticket_id=ticket.id, technician_id=world.technician.id)
+    world.tickets.comment(
+        ticket.id,
+        world.technician,
+        "Se revisa el equipo durante el recreo.",
     )
 
     assert ticket.is_assigned is True
-    assert [event.action for event in ticket.history] == ["assigned", "commented"]
-    assert ticket.history[0].actor_id == 2
-    assert ticket.history[0].details == {"technician_id": 2}
-    assert ticket.history[1].details == {"comment_id": 1}
+    assert [event.id for event in ticket.history] == [1, 2]
+    assert [event.event_type for event in ticket.history] == ["assigned", "commented"]
+    assert ticket.history[0].actor_id == world.technician.id
+    assert ticket.history[0].detail == f"assigned to {world.technician.name}"
+    assert ticket.history[1].detail == "comment added"
 
 
-def test_change_status_requires_staff_actor_and_records_history():
-    service = TicketService()
-    ticket = create_sample_ticket(service)
-    requester = User(id=1, name="Sofía", email="sofia@school.edu", role=Role.REQUESTER)
-    technician = User(id=2, name="Tomás", email="tomas@school.edu", role=Role.TECHNICIAN)
+def test_change_status_requires_staff_actor_and_records_history(world):
+    ticket = create_sample_ticket(world.tickets, requester_id=world.requester.id)
 
-    with pytest.raises(PermissionError):
-        service.change_status(ticket.id, TicketStatus.IN_PROGRESS, actor=requester)
+    with pytest.raises(PermissionDeniedError):
+        world.tickets.change_status(
+            ticket.id,
+            TicketStatus.IN_PROGRESS,
+            actor=world.requester,
+        )
 
-    updated = service.change_status(ticket.id, "in_progress", actor=technician)
+    updated = world.tickets.change_status(
+        ticket.id,
+        "in_progress",
+        actor=world.technician,
+    )
 
     assert updated is ticket
     assert ticket.status is TicketStatus.IN_PROGRESS
-    assert ticket.history[-1].action == "status_changed"
-    assert ticket.history[-1].actor_id == technician.id
-    assert ticket.history[-1].details == {
-        "from_status": "open",
-        "to_status": "in_progress",
-    }
+    assert ticket.history[-1].event_type == "status_changed"
+    assert ticket.history[-1].actor_id == world.technician.id
+    assert ticket.history[-1].detail == "in_progress"
 
 
-def test_change_status_refuses_closed_or_cancelled_tickets():
-    service = TicketService()
-    technician = User(id=2, name="Tomás", email="tomas@school.edu", role=Role.TECHNICIAN)
-    closed_ticket = create_sample_ticket(service)
-    cancelled_ticket = create_sample_ticket(service, title="Cancelar pedido")
+def test_change_status_refuses_terminal_tickets(world):
+    ticket = create_sample_ticket(world.tickets, requester_id=world.requester.id)
 
-    service.change_status(closed_ticket.id, TicketStatus.CLOSED, actor=technician)
-    service.change_status(cancelled_ticket.id, TicketStatus.CANCELLED, actor=technician)
+    world.tickets.change_status(ticket.id, TicketStatus.IN_PROGRESS, actor=world.technician)
+    world.tickets.change_status(ticket.id, TicketStatus.RESOLVED, actor=world.technician)
+    world.tickets.change_status(ticket.id, TicketStatus.CLOSED, actor=world.technician)
 
-    with pytest.raises(ValueError, match="closed or cancelled"):
-        service.change_status(closed_ticket.id, TicketStatus.OPEN, actor=technician)
-    with pytest.raises(ValueError, match="closed or cancelled"):
-        service.change_status(cancelled_ticket.id, TicketStatus.OPEN, actor=technician)
+    with pytest.raises(ValidationError, match="closed"):
+        world.tickets.comment(
+            ticket.id,
+            world.technician,
+            "Comentario tardío",
+        )
 
 
-def test_ticket_service_lists_tickets_assigned_to_technician():
-    service = TicketService()
-    first = create_sample_ticket(service)
-    second = create_sample_ticket(service, title="No funciona el proyector")
-    third = create_sample_ticket(service, title="Sin acceso a WiFi")
+def test_assign_requires_staff_actor_and_accepts_supervisor_assignee(world):
+    requester_ticket = create_sample_ticket(world.tickets, requester=world.requester)
+    supervisor_ticket = create_sample_ticket(
+        world.tickets,
+        requester=world.requester,
+        title="Configurar plataforma virtual",
+    )
 
-    service.assign_technician(first.id, technician_id=2)
-    service.assign_technician(second.id, technician_id=3)
-    service.assign_technician(third.id, technician_id=2)
+    with pytest.raises(PermissionDeniedError):
+        world.tickets.assign(
+            requester_ticket.id,
+            technician_id=world.technician.id,
+            actor=world.requester,
+        )
 
-    assert service.assigned_to(2) == [first, third]
-    assert service.assigned_to(999) == []
+    updated = world.tickets.assign(
+        supervisor_ticket.id,
+        technician_id=world.supervisor.id,
+        actor=world.technician,
+    )
+
+    assert updated is supervisor_ticket
+    assert supervisor_ticket.assignee_id == world.supervisor.id
+    assert supervisor_ticket.history[-1].actor_id == world.technician.id
+    assert supervisor_ticket.history[-1].detail == f"assigned to {world.supervisor.name}"
+
+
+def test_ticket_service_lists_tickets_assigned_to_technician(world):
+    first = create_sample_ticket(world.tickets, requester_id=world.requester.id)
+    second = create_sample_ticket(
+        world.tickets,
+        requester_id=world.requester.id,
+        title="No funciona el proyector",
+    )
+    third = create_sample_ticket(
+        world.tickets,
+        requester_id=world.requester.id,
+        title="Sin acceso a WiFi",
+    )
+
+    second_technician = world.users.register(
+        "valeria@school.edu",
+        "Valeria Técnica",
+        role=Role.TECHNICIAN,
+    )
+
+    world.tickets.assign(first.id, technician_id=world.technician.id)
+    world.tickets.assign(second.id, technician_id=second_technician.id)
+    world.tickets.assign(third.id, technician_id=world.technician.id)
+
+    assert world.tickets.assigned_to(world.technician.id) == [first, third]
+    assert world.tickets.assigned_to(999) == []
