@@ -2,7 +2,15 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from app.models.comments import Comment
-from app.models.enums import TicketStatus
+from app.models.enums import Role, TicketStatus
+
+
+@dataclass
+class User:
+    id: int
+    name: str
+    email: str
+    role: Role = Role.REQUESTER
 
 
 @dataclass
@@ -22,3 +30,7 @@ class Ticket:
     updated_at: datetime = field(
         default_factory=lambda: datetime.now().astimezone()
     )
+
+    @property
+    def is_open(self) -> bool:
+        return self.status not in (TicketStatus.CLOSED, TicketStatus.CANCELLED)
