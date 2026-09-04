@@ -1,8 +1,18 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 from app.models.comments import Comment
 from app.models.enums import Role, TicketStatus
+
+
+@dataclass
+class HistoryEvent:
+    ticket_id: int
+    actor_id: int
+    action: str
+    details: dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=lambda: datetime.now().astimezone())
 
 
 @dataclass
@@ -11,6 +21,14 @@ class User:
     name: str
     email: str
     role: Role = Role.REQUESTER
+
+    @property
+    def is_staff(self) -> bool:
+        return Role(self.role) in {
+            Role.TECHNICIAN,
+            Role.SUPERVISOR,
+            Role.ADMINISTRATOR,
+        }
 
 
 @dataclass
@@ -24,6 +42,7 @@ class Ticket:
     status: TicketStatus = TicketStatus.OPEN
     assignee_id: int | None = None
     comments: list[Comment] = field(default_factory=list)
+    history: list[HistoryEvent] = field(default_factory=list)
     created_at: datetime = field(
         default_factory=lambda: datetime.now().astimezone()
     )
@@ -34,3 +53,7 @@ class Ticket:
     @property
     def is_open(self) -> bool:
         return self.status not in (TicketStatus.CLOSED, TicketStatus.CANCELLED)
+
+    @property
+    def is_assigned(self) -> bool:
+        return self.assignee_id is not None
