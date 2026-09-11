@@ -65,3 +65,4 @@ class Ticket:
     @property
     def is_assigned(self) -> bool:
         return self.assignee_id is not None
+    

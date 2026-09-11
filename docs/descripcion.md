@@ -75,19 +75,126 @@ touch README.md .gitignore pyproject.tomlmkdir -p app/models app/services app/re
 
 ### 2.3.1 Estructura del proyecto
 
-helpdesk
-|--app/
-  |
-  |--core/
-  |--models/
-  |--repositories/
-  |--shcemas/
-  |--services/
-|--docs/
-|--test/
-|-- .gitignore
-|-- pyproject.toml
-|-- README.md
+HelpDesk_EDU/
+├── .github
+│ ├── workflows
+│ │ └── ci.yml
+│ └── pull_request_template.md
+├── app
+│ ├── api #api rest (end-point que van a recibir y enviar datos, get, push, put, post)
+│ │ ├── routes
+│ │ │ ├── __init__.py
+│ │ │ ├── assistance.py
+│ │ │ ├── auth.py
+│ │ │ ├── knowledge_base.py
+│ │ │ ├── mobile.py
+│ │ │ ├── notifications.py
+│ │ │ ├── system.py
+│ │ │ ├── tickets.py
+│ │ │ └── users.py
+│ │ └── __init__.py
+│ ├── core
+│ │ ├── __init__.py
+│ │ ├── config.py
+│ │ ├── database.py
+│ │ ├── dependencies.py
+│ │ └── security.py
+│ ├── domain
+│ │ ├── __init__.py
+│ │ ├── errors.py
+│ │ └── workflow.py
+│ ├── models
+│ │ ├── __init__.py
+│ │ ├── entities.py
+│ │ └── enums.py
+│ ├── repositories
+│ │ ├── __init__.py
+│ │ ├── articles.py
+│ │ ├── base.py
+│ │ ├── notifications.py
+│ │ └── sqlalchemy.py
+│ ├── schemas
+│ │ ├── __init__.py
+│ │ ├── articles.py
+│ │ ├── assistance.py
+│ │ ├── auth.py
+│ │ ├── mobile.py
+│ │ ├── notifications.py
+│ │ ├── tickets.py
+│ │ └── users.py
+│ ├── services
+│ │ ├── __init__.py
+│ │ ├── articles.py
+│ │ ├── assistance.py
+│ │ ├── auth.py
+│ │ ├── notifications.py
+│ │ ├── tickets.py
+│ │ └── users.py
+│ ├── web
+│ │ ├── templates
+│ │ │ ├── portal
+│ │ │ │ ├── _ticket_table.html
+│ │ │ │ ├── detail.html
+│ │ │ │ ├── home.html
+│ │ │ │ ├── new.html
+│ │ │ │ └── tickets.html
+│ │ │ ├── staff
+│ │ │ │ ├── _ticket_table.html
+│ │ │ │ ├── dashboard.html
+│ │ │ │ ├── detail.html
+│ │ │ │ ├── new.html
+│ │ │ │ ├── notifications.html
+│ │ │ │ └── tickets.html
+│ │ │ ├── base_public.html
+│ │ │ ├── base_staff.html
+│ │ │ ├── knowledge_base.html
+│ │ │ ├── landing.html
+│ │ │ └── login.html
+│ │ ├── __init__.py
+│ │ └── routes.py
+│ ├── __init__.py
+│ └── main.py
+├── docs
+│ ├── database
+│ │ ├── er.md
+│ │ ├── queries.sql
+│ │ ├── schema.sql
+│ │ └── seed.sql
+│ ├── decisions
+│ │ ├── 0001-fastapi-y-sqlalchemy.md
+│ │ └── 0002-errores-de-dominio.md
+│ ├── architecture.md
+│ ├── manual_tecnico.md
+│ └── manual_usuario.md
+├── scripts
+│ ├── __init__.py
+│ ├── backup_db.py
+│ ├── console.py
+│ ├── seed_demo.py
+│ └── sql_lab.py
+├── tests
+│ ├── __init__.py
+│ ├── conftest.py
+│ ├── test_week07_domain.py
+│ ├── test_week08_relations.py
+│ ├── test_week09_architecture.py
+│ ├── test_week10_schema.py
+│ ├── test_week11_persistence.py
+│ ├── test_week12_exam.py
+│ ├── test_week13_persistence.py
+│ ├── test_week14_api.py
+│ ├── test_week15_architecture.py
+│ ├── test_week15_web.py
+│ ├── test_week16_release.py
+│ └── test_week17_modules.py
+├── .dockerignore
+├── .env.example
+├── .gitignore
+├── .python-version
+├── Dockerfile
+├── README.md
+├── docker-compose.yml
+└── pyproject.toml
 
 ## 2.4 .gitignore
 
@@ -313,4 +420,21 @@ git checkout developer
 git pull origin developer
 git branch --delete feature/week-9-abstraccion-repositorios-polimorfismo
 ```
+## SEMANA 10 Y 11
+Entidades del negocio del sistema Help Desk Edu. 
+
+## users
+Pregunta de negocio: Quién reporta, atiende, comenta, administra?
+
+├ Atributo --├── Tipo         ----├── Restricciones           ├── Por qué este tipo                                                   ├── Origen en el ORM              ├
+├ id.        ├   INTEGER (SERIAL).├──   PK, NO ACEPTA NULOS.  ├── Identificador interno; la base de datos lo asgina al insertar.      ├─mapperd_column(primary_key=true)
+├ email      ├.  VARCHAR(120).    ├──. NO ACEPTA NULOS, UNICO ├── Es una llave natural (candidata) para el login, UNIQUE              ├──. 
+├ name.      ├   VARCAHR(100).    ├──. NO ACEPTA NULOS        ├── Nombres que podemos mostrar con 100 caracteres.                     ├──. String(100)
+├ role       ├── VARCHAR(20).     ├──. NO ACEPTA NULOS.       ├── Vocabulario cerrado (Administrador,Supervisor,Tecnico,recepcionista)├──  String(20) Validado por Roles├
+├ password_h ├─. VARCHAR(255).    ├──  NO ACEPTA NULOS.       ├── Hash PBKDF2-SHA256 con sal(~90 caracteres); 255 margen algoritmos.  ├──. hash_password
+
+
+Dependencias funcionales: id -> email,name, role, passowrd_hash; email -> id (llave candidata alterna)
+FORMA NORMAL: 3FN (y BCNF). Está en 1FN (valores atómicos, PK), en 2FN Trivialmente (PK simple, no hay dependencias); en 3FN porque ningún atributo no clave depende de otro no clave: name, role y password_hash dependen del usuario. email es determinante  pero es llave candidata, lo que cumple también BNCF.
+
 
