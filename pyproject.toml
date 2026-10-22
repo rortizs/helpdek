@@ -3,7 +3,10 @@ name= "helpdesk-edu"
 version = "0.1.0"
 description = "A HelpDesk EDU application"
 requires-python = ">=3.11"
-dependencies = [] 
+dependencies = [
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.2",
+]
 
 [dependency-groups]
 dev = ["pytest>=8.3"]

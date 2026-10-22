@@ -437,4 +437,109 @@ Pregunta de negocio: Quién reporta, atiende, comenta, administra?
 Dependencias funcionales: id -> email,name, role, passowrd_hash; email -> id (llave candidata alterna)
 FORMA NORMAL: 3FN (y BCNF). Está en 1FN (valores atómicos, PK), en 2FN Trivialmente (PK simple, no hay dependencias); en 3FN porque ningún atributo no clave depende de otro no clave: name, role y password_hash dependen del usuario. email es determinante  pero es llave candidata, lo que cumple también BNCF.
 
+# semana 13
+## Entorno y verificación
+Lista de comprobación para empezar. 
+
+# Checklist de inicio
+  1-*Actualizar la rama de integración*
+  ```git
+  git checkout developer && git pull
+  ```
+  Por qué: cada sesión parte del trabajo ya integrado. 
+
+  2-*Verificar Docker está activo* (MacOS: Colima)
+  ```terminal
+  colima status
+  docker status
+  docker ps
+  ```
+  3-*Levantar la base de datos y confirmar su estado*
+  ```terminal
+  docker compose up -d db
+  docker compose ps
+  ```
+  Resultado esperado: El servicio 'db' debe aparecer como runnig, puerto publicado y el name de la BD. 
+
+  4- *Instalar las deperencias*
+  ```terminal 
+    uv sync
+  ```
+  4.1- *Listar depencias instaladas*
+  ```terminal
+    uv pip list
+  ```
+  deberia mostrar lo siguiente:
+
+  ```terminal 
+  Package           Version
+----------------- -------
+  iniconfig         2.3.0
+  packaging         26.3
+  pluggy            1.6.0
+  psycopg           3.3.5
+  psycopg-binary    3.3.5
+  pygments          2.21.0  
+  pytest            9.1.1
+  sqlalchemy        2.0.54
+  typing-extensions 4.16.0
+```
+
+## Datos de conexión
+Servidor = localhost
+Puerto (host) = 5433
+Base de datos de práctica = helpdesk-db-1
+Usuario / password = helpdesk | helpdesk
+imagen (contenedor de docker) = PostgreSQL 16 con pgvector
+
+el puerto 5433 se usa a propósito para no chocar con un PostgreSQL local con el puerto pode default = 5432
+
+## Script de inicialización y cómo reinciar la base de datos
+Al crear el contenedor por primera vez, PostgreSQL ejecuta los scripts de docs/database/ database.sql
+
+para volver a un estado limpio:
+```terminal 
+docker compose down -v 
+dcoker compose up -d db
+```
+**Advertencia: 'docker compose down -v' elimina el volumen y todo los datos de la DB de helpdesk.**
+
+## La conexion a la BD
+esta se integra en las variables de entorno con el nombre 'TEST_DATABASE_URL'. 
+
+
+```terminal 
+  export TEST_DATABASE_URL="postgresql+psycopg://helpdesk:helpdesk@localhost:5433/helpdesk_test"
+```
+
+## Problemas frecuentes 
+Síntoma = No conecta  --> Causa probable = Hay un postgreSQL local y esta corriendo en el mismo puerto. 
+Síntoma = El contenedor 'db' aparece como 'Exited' tras reiniciar docker o colima o el equipo. Causa probable -> Los contenedores se deteiene al apagar docker.
+Síntoma = role 'helpdesk' does not exist. Causa probable -> Te conectaste al servidor equivicoda con el puerto incorrecto. 
+Síntoma = Las pruebas aparece como skipped. Causa probable -> PostgreSQL no está disponible y las pruebas de integración se omiten. 
+Síntoma = Cambié 'database.sql' pero la base sigue igual. Causa probable -> Los scripts solo corren con un volumen vacío. 
+Síntoma = docker: 'command not found' o 'Cannot connect to the docker deamon'. Causa probable -> Docker / Colima no está iniciado. 
+
+# verificación final del etorno
+si estro tres comandos terminan sin error, estás listo para trabajar !!
+
+```terminal 
+  docker compose ps
+  uv sync
+  uv run pytest -q
+```
+
+## Paso 3 - Las pruebas primero (RED)
+
+Qué cambia: tests/test_week11_persistence.py pasa de SQLite en memoria a la fixture db de PostgreSQL, y se agregan cinco pruebas que describen elcomportamiento correcto.
+Por qué:
+antes de cambiar el código hay que demostrar que el problema existe y tener una forma objetiva de saber cuándo está resuelto. Cada prueba nueva corresponde a un error de la sección 2:
+ Prueba= test_assign_on_seeded_ticket_with_a_fresh_service --[Qué demuestra] = Asignar un ticket del seed con un servicio nuevo
+ Prueba= test_comment_on_seeded_ticket_with_a_fresh_service --[Qué demuestra] = El comentario no se descarta en silencio
+ prueba= test_comments_from_two_service_instances_are_both_persisted --[Qué demuestra] = Dos servicios distintos no se interfieren
+ prueba= test_plain_sql_insert_after_service_inserts_gets_a_free_id --[Qué demuestra] = Un INSERT sin id sigue funcionando
+ prueba= test_repositories_write_generated_ids_back_to_domain_objects --[Qué demuestra] =Los ids generados llegan al objeto de dominio
+ 
+
+
 
