@@ -6,10 +6,14 @@ Nada de esto va escrito en el codigo: viene de variables de entorno.
 
 Se lee del entorno cada vez que se pide, igual que `get_database_url()`:
 asi las pruebas pueden cambiar una variable sin reiniciar el proceso.
+
+Semana 17: se suman CORS_ORIGINS y LOG_LEVEL. Todas las variables estan documentadas en
+`.env.example` y en el README; en Docker las entrega docker-compose.yml desde el archivo .env.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 
@@ -18,6 +22,7 @@ from app.domain.clock import get_app_timezone
 
 MIN_SECRET_LENGTH = 32
 DEFAULT_TOKEN_MINUTES = 60
+DEFAULT_LOG_LEVEL = "INFO"
 
 
 # 22/10/2026 - Configuracion inmutable (frozen): nadie la cambia a mitad de una peticion.
@@ -28,10 +33,39 @@ class Settings:
     debug: bool
     app_timezone: str
     access_token_minutes: int
+    # 22/10/2026 - Semana 17: origenes que pueden llamar a la API desde OTRO origen (vacio = solo el mismo).
+    cors_origins: tuple[str, ...]
+    # 22/10/2026 - Semana 17: nivel minimo de los logs de la aplicacion (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+    log_level: str
 
 
 def _flag(name: str) -> bool:
     return os.environ.get(name, "false").lower() in {"1", "true", "yes"}
+
+
+def _cors_origins() -> tuple[str, ...]:
+    """22/10/2026 - Lee CORS_ORIGINS (origenes separados por coma) y se niega a aceptar `*`.
+
+    Una lista explicita es la unica forma de saber quien puede llamar a mi API desde un navegador.
+    Con `*` cualquier pagina de Internet podria hacerlo; por eso prefiero que la app falle al
+    arrancar a que quede abierta por un descuido en el .env.
+    """
+    origins = tuple(o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip())
+    if "*" in origins:
+        raise RuntimeError(
+            "CORS_ORIGINS no admite '*': escribe los origenes uno por uno, separados por coma "
+            "(por ejemplo http://localhost:5500,https://helpdesk.miumg.edu)."
+        )
+    return origins
+
+
+def _log_level() -> str:
+    """22/10/2026 - Lee LOG_LEVEL en mayusculas y rechaza nombres que logging no conoce (un typo no debe silenciar los logs)."""
+    level = os.environ.get("LOG_LEVEL", DEFAULT_LOG_LEVEL).strip().upper()
+    if level not in logging.getLevelNamesMapping() or level == "NOTSET":
+        valid = ", ".join(name for name in logging.getLevelNamesMapping() if name not in {"NOTSET", "WARN", "FATAL"})
+        raise RuntimeError(f"LOG_LEVEL='{level}' no es valido; usa uno de: {valid}.")
+    return level
 
 
 def get_settings() -> Settings:
@@ -43,6 +77,8 @@ def get_settings() -> Settings:
         debug=_flag("DEBUG"),
         app_timezone=get_app_timezone(),
         access_token_minutes=int(os.environ.get("ACCESS_TOKEN_MINUTES", DEFAULT_TOKEN_MINUTES)),
+        cors_origins=_cors_origins(),
+        log_level=_log_level(),
     )
 
 

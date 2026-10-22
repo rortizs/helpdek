@@ -5,7 +5,10 @@ y exijo SECRET_KEY antes de aceptar trafico. La documentacion OpenAPI sale
 sola en /docs y /openapi.json a partir de las rutas y los esquemas.
 
 Semana 16: el mismo proceso sirve el cliente web (HTML, CSS y JavaScript) en /app. Un solo origen
-significa que el navegador no necesita CORS para llamar a /api; en la semana 17 se explica cuando si.
+significa que el navegador no necesita CORS para llamar a /api.
+
+Semana 17: CORS con lista explicita de origenes (CORS_ORIGINS), logging configurado desde LOG_LEVEL y una
+linea de log por peticion. Con Docker: `docker compose up -d --build` y abrir http://localhost:8000/app.
 
     uv run uvicorn app.main:app --reload --env-file .env
 """
@@ -16,12 +19,15 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
 from app.api.errors import register_error_handlers
 from app.api.routes import auth, notifications, system, tickets, users
 from app.core.config import get_secret_key, get_settings
 from app.core.database import Database
+from app.core.logging_config import configure_logging
+from app.core.request_logging import RequestLogMiddleware
 from app.web.static_files import STATIC_DIR, ClientStaticFiles
 
 
@@ -41,6 +47,33 @@ def redirect_to_client() -> RedirectResponse:
     return RedirectResponse("/app/", status_code=307)
 
 
+def add_cors(app: FastAPI, origins: tuple[str, ...]) -> None:
+    """22/10/2026 - Semana 17: abre CORS SOLO para los origenes de la lista; sin lista no instala nada.
+
+    Por que /app NO lo necesita: el navegador compara el ORIGEN (esquema + host + puerto) de la pagina con el de
+    la API. /app y /api salen del mismo servidor (http://localhost:8000), asi que son el mismo origen y no hay
+    nada que permitir. Cuando SI hace falta: si el cliente se sirve desde otro origen, por ejemplo
+    `python -m http.server 5500` (http://localhost:5500) llamando a la API en el 8000; el navegador manda un
+    preflight (OPTIONS) y bloquea la respuesta si la API no lo autoriza. Entonces se agrega ese origen a CORS_ORIGINS.
+
+    - allow_origins es la lista exacta: nunca `*` (config.py ya lo rechaza).
+    - allow_credentials=False: el token viaja en el encabezado Authorization, no en cookies, asi que no hay
+      credenciales del navegador que proteger; asi tampoco puede combinarse con un origen abierto.
+    - expose_headers: el cliente pagina con `X-Total-Count`, y un cliente de otro origen no puede leerlo si no se expone.
+    """
+    if not origins:
+        return
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=list(origins),
+        allow_methods=["GET", "POST", "PATCH"],
+        allow_headers=["Authorization", "Content-Type"],
+        expose_headers=["X-Total-Count"],
+        allow_credentials=False,
+        max_age=600,
+    )
+
+
 def create_app(database_url: str | None = None) -> FastAPI:
     """22/10/2026 - Fabrica de la aplicacion: las pruebas crean una nueva por cada caso.
 
@@ -49,6 +82,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     """
     get_secret_key()  # falla rapido y claro si falta SECRET_KEY, antes de aceptar trafico
     settings = get_settings()
+    configure_logging(settings.log_level)  # semana 17: hace visibles helpdesk.audit y helpdesk.request
     app = FastAPI(title=settings.app_name, version="0.1.0", debug=settings.debug, lifespan=lifespan)
     app.state.database = Database(database_url or settings.database_url)
 
@@ -66,6 +100,10 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app.add_api_route("/", redirect_to_client, methods=["GET", "HEAD"], include_in_schema=False)
 
     register_error_handlers(app)
+    # 22/10/2026 - Semana 17: el ULTIMO middleware agregado es el mas externo. CORS va primero (mas adentro)
+    # y el log de peticiones despues, para que tambien registre los preflight y los rechazos de CORS.
+    add_cors(app, settings.cors_origins)
+    app.add_middleware(RequestLogMiddleware)
     return app
 
 
