@@ -27,6 +27,18 @@ from app.services.users import UserService
 from tests.helpers import assert_is_test_database, seeded_password_hashes
 
 
+# 22/10/2026 - Semana 17: las fixtures que abren PostgreSQL real. Una prueba que use cualquiera de ellas es de
+# INTEGRACION; asi `pytest -m "not integration"` corre sin base de datos y nadie tiene que acordarse de marcar a mano.
+DATABASE_FIXTURES = frozenset({"pg_engine", "db", "committed_db"})
+
+
+def pytest_collection_modifyitems(items):
+    """22/10/2026 - Agrega el marcador `integration` a toda prueba que dependa de una fixture con base de datos."""
+    for item in items:
+        if DATABASE_FIXTURES & set(item.fixturenames):
+            item.add_marker(pytest.mark.integration)
+
+
 @pytest.fixture
 def user_repository():
     return InMemoryUserRepository()
