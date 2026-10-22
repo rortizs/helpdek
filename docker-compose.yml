@@ -6,6 +6,10 @@ services:
       POSTGRES_DB: helpdesk
       POSTGRES_USER: helpdesk
       POSTGRES_PASSWORD: helpdesk
+      # Misma zona que la aplicacion (APP_TIMEZONE). Solo aplica con el volumen
+      # vacio: TZ fija la zona del servidor y PGTZ la de los scripts de init (seed).
+      TZ: America/Guatemala
+      PGTZ: America/Guatemala
     ports: ["5433:5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data

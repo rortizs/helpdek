@@ -20,7 +20,7 @@ from app.models.assignments import Assignment
 from app.models.comments import Comment
 from app.models.entities import HistoryEvent, Ticket, User
 from app.models.enums import CATEGORIES, PRIORITIES, Role, TicketStatus
-from app.repositories.base import TicketRepository
+from app.repositories.base import TicketPage, TicketQuery, TicketRepository
 from app.services.notifications import Notifier, NullNotifier
 from app.services.users import UserService
 
@@ -85,10 +85,49 @@ class TicketService:
             requester_id=requester_id,
         )
 
+    def list_for(
+        self,
+        actor: User,
+        status: TicketStatus | str | None = None,
+        category: str | None = None,
+        priority: str | None = None,
+        assignee_id: int | None = None,
+        requester_id: int | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> TicketPage:
+        """22/10/2026 - Lista lo que `actor` puede ver: el personal todo, un solicitante lo suyo."""
+        if category is not None and category not in CATEGORIES:
+            raise ValidationError("category is invalid", field="category")
+        if priority is not None and priority not in PRIORITIES:
+            raise ValidationError("priority is invalid", field="priority")
+        if not actor.is_staff:
+            # Pedir los tickets de otra persona no da error ni los revela: da vacio.
+            if requester_id not in (None, actor.id):
+                return TicketPage()
+            requester_id = actor.id
+        return self._repository.search(
+            TicketQuery(
+                status=status,
+                category=category,
+                priority=priority,
+                assignee_id=assignee_id,
+                requester_id=requester_id,
+                limit=limit,
+                offset=offset,
+            )
+        )
+
     def require(self, ticket_id: int) -> Ticket:
         ticket = self._repository.by_id(ticket_id)
         if ticket is None:
             raise TicketNotFoundError(ticket_id)
+        return ticket
+
+    def require_for(self, actor: User, ticket_id: int) -> Ticket:
+        """22/10/2026 - Como require(), pero un ticket ajeno "no existe" para un solicitante."""
+        ticket = self.require(ticket_id)
+        self._ensure_visible(ticket, actor)
         return ticket
 
     def by_id(self, ticket_id: int) -> Ticket | None:
@@ -109,15 +148,17 @@ class TicketService:
         technician_id: int,
         actor: User | None = None,
     ) -> Ticket:
-        ticket = self.require(ticket_id)
-        self._ensure_open(ticket)
-        technician = self._users.require(technician_id)
+        # El permiso se revisa ANTES de buscar el ticket: quien no es personal
+        # recibe 403 igual exista o no, asi no se averigua que ids existen.
         if actor is not None and not actor.is_staff:
             raise PermissionDeniedError(
                 "Only staff users can assign tickets",
                 actor_id=actor.id,
                 ticket_id=ticket_id,
             )
+        ticket = self.require(ticket_id)
+        self._ensure_open(ticket)
+        technician = self._users.require(technician_id)
         if Role(technician.role) not in {Role.TECHNICIAN, Role.SUPERVISOR}:
             raise ValidationError(
                 "assignee must be support staff",
@@ -154,12 +195,15 @@ class TicketService:
         author_id: int | None = None,
     ) -> Comment:
         ticket = self.require(ticket_id)
-        self._ensure_open(ticket)
         resolved_author_id = self._resolve_user_id(
             author,
             fallback_id=author_id,
             field="author_id",
         )
+        # Quien no puede ver el ticket tampoco puede comentarlo (404, no 403).
+        author_user = author if isinstance(author, User) else self._users.require(resolved_author_id)
+        self._ensure_visible(ticket, author_user)
+        self._ensure_open(ticket)
         if body is None:
             raise ValidationError("comment body is required", field="body")
         trimmed_body = body.strip()
@@ -200,14 +244,14 @@ class TicketService:
         new_priority: str,
         actor: User,
     ) -> Ticket:
-        ticket = self.require(ticket_id)
-        self._ensure_open(ticket)
         if not actor.is_staff:
             raise PermissionDeniedError(
                 "Only staff users can change ticket priority",
                 actor_id=actor.id,
                 ticket_id=ticket_id,
             )
+        ticket = self.require(ticket_id)
+        self._ensure_open(ticket)
         if new_priority not in PRIORITIES:
             raise ValidationError("priority is invalid", field="priority")
 
@@ -230,13 +274,13 @@ class TicketService:
         new_status: TicketStatus | str,
         actor: User,
     ) -> Ticket:
-        ticket = self.require(ticket_id)
         if not actor.is_staff:
             raise PermissionDeniedError(
                 "Only staff users can change ticket status",
                 actor_id=actor.id,
                 ticket_id=ticket_id,
             )
+        ticket = self.require(ticket_id)
 
         target_status = TicketStatus(new_status)
         previous_status = ticket.status
@@ -329,6 +373,10 @@ class TicketService:
 
         self._users.require(user_id)
         return user_id
+
+    def _ensure_visible(self, ticket: Ticket, user: User) -> None:
+        if not user.is_staff and ticket.requester_id != user.id:
+            raise TicketNotFoundError(ticket.id)
 
     def _ensure_open(self, ticket: Ticket) -> None:
         if not ticket.is_open:

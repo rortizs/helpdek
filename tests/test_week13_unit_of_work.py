@@ -26,6 +26,7 @@ Que debes construir (cada bloque de pruebas corresponde a una pieza):
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import func, select, text
@@ -37,7 +38,7 @@ from app.core.database import (
     session_scope,
 )
 from app.core.services import build_services
-from app.domain.clock import now
+from app.domain.clock import get_app_timezone, now
 from app.domain.errors import ConflictError, PermissionDeniedError, ValidationError
 from app.models.comments import Comment
 from app.models.entities import HistoryEvent, Ticket, User
@@ -292,7 +293,9 @@ def test_update_persists_title_description_and_category(db):
 def test_clock_now_is_naive_local_time():
     current = now()
     assert current.tzinfo is None
-    assert abs(current - datetime.now()) < timedelta(seconds=5)
+    # "Local" = la zona de la aplicacion (APP_TIMEZONE), no la de la maquina.
+    wall_clock = datetime.now(ZoneInfo(get_app_timezone())).replace(tzinfo=None)
+    assert abs(current - wall_clock) < timedelta(seconds=5)
 
 
 def test_new_domain_objects_use_naive_timestamps():

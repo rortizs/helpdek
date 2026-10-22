@@ -7,7 +7,7 @@ from app.domain.errors import (
 )
 from app.domain.workflow import assert_transition, can_transition
 from app.models.enums import Role, TicketStatus
-from app.repositories.base import TicketRepository, UserRepository
+from app.repositories.base import TicketPage, TicketRepository, UserRepository
 from app.repositories.memory import InMemoryTicketRepository
 from app.services.notifications import NullNotifier, RecordingNotifier
 from app.services.tickets import TicketService
@@ -143,6 +143,10 @@ class AlternateTicketRepository(TicketRepository):
 
     def rollback(self):
         pass
+
+    def search(self, query):
+        # Este doble no filtra ni pagina: solo cumple el contrato (semana 14).
+        return TicketPage(items=self.list(), total=len(self._tickets))
 
 
 def test_ticket_service_accepts_alternate_repository_implementation(users):

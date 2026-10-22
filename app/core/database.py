@@ -18,6 +18,8 @@ from contextlib import contextmanager
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.domain.clock import get_app_timezone
+
 DEFAULT_DATABASE_URL = "postgresql+psycopg://helpdesk:helpdesk@localhost:5433/helpdesk"
 
 # Se crean una sola vez: el engine es un pool de conexiones y es caro construirlo.
@@ -30,11 +32,25 @@ def get_database_url() -> str:
     return os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
 
 
+def create_app_engine(database_url: str) -> Engine:
+    """22/10/2026 - Engine cuyas conexiones usan la zona de la aplicacion.
+
+    CURRENT_TIMESTAMP y los triggers (due_at) calculan con la zona de la
+    SESION; sin esta opcion usarian la del servidor (UTC en Docker) y las
+    horas de Python y de la base quedarian desfasadas.
+    """
+    return create_engine(
+        database_url,
+        echo=False,
+        connect_args={"options": f"-c timezone={get_app_timezone()}"},
+    )
+
+
 def init_engine(database_url: str | None = None) -> Engine:
     """22/10/2026 - Crea el engine y la fabrica de sesiones (reemplaza los anteriores)."""
     global _engine, _session_factory
     dispose_engine()
-    _engine = create_engine(database_url or get_database_url(), echo=False)
+    _engine = create_app_engine(database_url or get_database_url())
     _session_factory = sessionmaker(bind=_engine, expire_on_commit=False)
     return _engine
 
