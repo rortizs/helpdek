@@ -14,7 +14,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-helpdesk}
       POSTGRES_USER: ${POSTGRES_USER:-helpdesk}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env (copia .env.example)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env (si ya tenias la base de las semanas 13-16 usa POSTGRES_PASSWORD=helpdesk; si es nueva, copia .env.example)}
       # Misma zona que la aplicacion (APP_TIMEZONE). Solo aplica con el volumen vacio: TZ fija la zona del
       # servidor y PGTZ la de los scripts de init (seed), asi CURRENT_TIMESTAMP no queda en UTC.
       TZ: ${APP_TIMEZONE:-America/Guatemala}
@@ -50,7 +50,7 @@ services:
     environment:
       # En compose la base se llama `db` (nombre del servicio), no localhost. Armo la URL con las mismas
       # variables que usa la base, asi no hay dos contrasenas que mantener.
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-helpdesk}:${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env}@db:5432/${POSTGRES_DB:-helpdesk}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-helpdesk}:${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env (si ya tenias la base de las semanas 13-16 usa POSTGRES_PASSWORD=helpdesk)}@db:5432/${POSTGRES_DB:-helpdesk}
       SECRET_KEY: ${SECRET_KEY:?define SECRET_KEY en .env (python -c "import secrets; print(secrets.token_urlsafe(48))")}
       APP_NAME: ${APP_NAME:-HelpDesk EDU}
       APP_TIMEZONE: ${APP_TIMEZONE:-America/Guatemala}
