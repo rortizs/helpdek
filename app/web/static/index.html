@@ -1,0 +1,50 @@
+<!doctype html>
+<!--
+  22/10/2026 - Richard Ortiz: pagina de INGRESO del cliente web (semana 16).
+  Es la puerta de entrada: pide correo y contrasena, los envia a POST /api/auth/login y guarda el token
+  en sessionStorage (js/session.js). No hay scripts ni estilos en linea porque la politica CSP del servidor
+  los bloquearia; toda la logica esta en js/pages/login.js.
+-->
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ingresar · HelpDesk EDU</title>
+  <link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="app-login">
+  <a class="skip-link" href="#main">Saltar al contenido</a>
+  <main id="main" class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-12 col-sm-10 col-md-7 col-lg-5">
+        <p class="app-brand text-center mb-4">HelpDesk EDU</p>
+        <div class="card shadow-sm">
+          <div class="card-body p-4">
+            <h1 id="page-title" tabindex="-1" class="h3 mb-1">Ingresar</h1>
+            <p class="text-body-secondary mb-4">Usa el correo y la contraseña de tu cuenta de soporte.</p>
+
+            <div id="alert-region" aria-live="assertive" aria-atomic="true"></div>
+            <noscript><div class="alert alert-warning" role="alert">Este cliente necesita JavaScript para funcionar.</div></noscript>
+
+            <form id="login-form" novalidate>
+              <div class="mb-3">
+                <label for="email" class="form-label">Correo electrónico</label>
+                <input type="email" class="form-control" id="email" name="email" autocomplete="username" maxlength="120" required>
+              </div>
+              <div class="mb-4">
+                <label for="password" class="form-label">Contraseña</label>
+                <input type="password" class="form-control" id="password" name="password" autocomplete="current-password" maxlength="128" required>
+              </div>
+              <button type="submit" class="btn btn-primary w-100" id="login-submit">Ingresar</button>
+            </form>
+          </div>
+        </div>
+        <p class="text-center small text-body-secondary mt-3">Tu sesión se guarda solo en esta pestaña y se cierra al cerrarla.</p>
+      </div>
+    </div>
+  </main>
+  <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
+  <script type="module" src="js/pages/login.js"></script>
+</body>
+</html>
