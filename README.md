@@ -6,13 +6,13 @@ semana 14, una API REST con FastAPI.
 
 ## Puesta en marcha (semana 14)
 
-22/10/2026 - Estos son los pasos que seguimos en clase para levantar la API:
+22/10/2026 - Estos son los pasos que seguimos en clase para levantar la API. Primero genero la clave y completo `.env`, porque desde la semana 17 compose no arranca sin ellas:
 
 ```bash
-cp .env.example .env             # completa SECRET_KEY y POSTGRES_PASSWORD (ver abajo y la tabla de la semana 17)
-docker compose up -d db          # PostgreSQL 16 en el puerto 5433
+cp .env.example .env             # completa SECRET_KEY y POSTGRES_PASSWORD ANTES de levantar nada (ver abajo)
+python -c "import secrets; print(secrets.token_urlsafe(48))"   # genera tu SECRET_KEY y pegala en .env
+docker compose up -d db          # PostgreSQL 16 en el puerto 5433 (compose ya exige ambas variables)
 uv sync                          # dependencias del proyecto
-python -c "import secrets; print(secrets.token_urlsafe(48))"   # genera una clave propia
 uv run python -m app.scripts.set_password requester@example.com    # el seed trae hashes de relleno
 uv run uvicorn app.main:app --reload --env-file .env
 ```
