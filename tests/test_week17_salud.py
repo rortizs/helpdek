@@ -29,6 +29,7 @@ def _kill_pooled_connection(app, pg_engine) -> None:
 
 
 def test_health_answers_503_on_the_first_request_after_the_database_drops_connections(committed_db, pg_engine):
+    """22/10/2026 - Esta es la prueba del error: la primera salud tras matar la conexion del pool debe ser 503 y no 500."""
     app = create_app()
     # raise_server_exceptions=False: si la ruta revienta quiero VER el 500, no una excepcion de la prueba.
     with TestClient(app, raise_server_exceptions=False) as client:
@@ -42,6 +43,7 @@ def test_health_answers_503_on_the_first_request_after_the_database_drops_connec
 
 
 def test_health_recovers_by_itself_once_the_database_answers_again(committed_db, pg_engine):
+    """22/10/2026 - Compruebo que, pasada la caida, la API abre una conexion nueva y vuelve a contestar 200 sin reiniciarse."""
     app = create_app()
     with TestClient(app, raise_server_exceptions=False) as client:
         client.get("/api/health")

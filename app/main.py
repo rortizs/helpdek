@@ -79,6 +79,9 @@ def create_app(database_url: str | None = None) -> FastAPI:
 
     Semana 15: cada aplicacion crea y posee su `Database` (engine + sesiones) y la
     cuelga de `app.state`. Dos aplicaciones con URLs distintas no comparten nada.
+
+    Semana 17: tambien configura los logs (LOG_LEVEL), abre CORS solo para los origenes de
+    CORS_ORIGINS y agrega el middleware que escribe una linea de log por peticion.
     """
     get_secret_key()  # falla rapido y claro si falta SECRET_KEY, antes de aceptar trafico
     settings = get_settings()

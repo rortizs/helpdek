@@ -38,6 +38,7 @@ def restore_logging():
 
 
 def test_settings_have_safe_defaults_for_cors_and_logging(monkeypatch):
+    """22/10/2026 - Sin variables, CORS queda cerrado (solo mismo origen) y el log en INFO."""
     monkeypatch.delenv("CORS_ORIGINS", raising=False)
     monkeypatch.delenv("LOG_LEVEL", raising=False)
 
@@ -48,12 +49,14 @@ def test_settings_have_safe_defaults_for_cors_and_logging(monkeypatch):
 
 
 def test_cors_origins_are_read_from_a_comma_separated_variable(monkeypatch):
+    """22/10/2026 - CORS_ORIGINS acepta varios origenes separados por coma y descarta espacios y vacios."""
     monkeypatch.setenv("CORS_ORIGINS", f" {ALLOWED_ORIGIN} , http://localhost:3000,, ")
 
     assert get_settings().cors_origins == (ALLOWED_ORIGIN, "http://localhost:3000")
 
 
 def test_a_wildcard_origin_is_refused(monkeypatch):
+    """22/10/2026 - Un `*` en CORS_ORIGINS debe impedir el arranque: prefiero fallar a quedar abierto a todo Internet."""
     monkeypatch.setenv("CORS_ORIGINS", "*")
 
     with pytest.raises(RuntimeError, match="CORS_ORIGINS"):
@@ -61,6 +64,7 @@ def test_a_wildcard_origin_is_refused(monkeypatch):
 
 
 def test_log_level_is_case_insensitive_and_validated(monkeypatch):
+    """22/10/2026 - LOG_LEVEL admite minusculas y rechaza cualquier nombre que no sea uno de los cinco niveles."""
     monkeypatch.setenv("LOG_LEVEL", "debug")
     assert get_settings().log_level == "DEBUG"
 
@@ -88,6 +92,7 @@ def _preflight(client: TestClient, origin: str):
 
 
 def test_an_allowed_origin_passes_the_preflight(monkeypatch):
+    """22/10/2026 - El origen de la lista recibe el preflight con su propio origen exacto, sin credenciales ni `*`."""
     monkeypatch.setenv("CORS_ORIGINS", ALLOWED_ORIGIN)
 
     with TestClient(create_app(database_url=UNREACHABLE_DB)) as client:
@@ -101,6 +106,7 @@ def test_an_allowed_origin_passes_the_preflight(monkeypatch):
 
 
 def test_an_unknown_origin_is_rejected_by_the_preflight(monkeypatch):
+    """22/10/2026 - Un origen que no esta en la lista no recibe ningun encabezado de permiso."""
     monkeypatch.setenv("CORS_ORIGINS", ALLOWED_ORIGIN)
 
     with TestClient(create_app(database_url=UNREACHABLE_DB)) as client:
@@ -111,6 +117,7 @@ def test_an_unknown_origin_is_rejected_by_the_preflight(monkeypatch):
 
 
 def test_a_real_request_from_an_allowed_origin_can_read_the_total_count_header(monkeypatch):
+    """22/10/2026 - Ademas del preflight, la respuesta real lleva el permiso y deja leer X-Total-Count al cliente de otro origen."""
     monkeypatch.setenv("CORS_ORIGINS", ALLOWED_ORIGIN)
 
     with TestClient(create_app(database_url=UNREACHABLE_DB)) as client:
@@ -122,6 +129,7 @@ def test_a_real_request_from_an_allowed_origin_can_read_the_total_count_header(m
 
 
 def test_without_configuration_no_origin_is_allowed_and_the_client_still_works(monkeypatch):
+    """22/10/2026 - Sin CORS_ORIGINS nadie de otro origen entra, y aun asi /app funciona porque es el mismo origen."""
     monkeypatch.delenv("CORS_ORIGINS", raising=False)
 
     with TestClient(create_app(database_url=UNREACHABLE_DB)) as client:
@@ -136,6 +144,7 @@ def test_without_configuration_no_origin_is_allowed_and_the_client_still_works(m
 
 
 def test_configure_logging_writes_time_level_logger_and_message():
+    """22/10/2026 - El formato de cada linea es `hora NIVEL [logger] mensaje`, como lo explico en clase."""
     stream = io.StringIO()
     configure_logging("INFO", stream=stream)
 
@@ -147,6 +156,7 @@ def test_configure_logging_writes_time_level_logger_and_message():
 
 
 def test_configure_logging_honours_the_level_and_does_not_duplicate_handlers():
+    """22/10/2026 - El nivel manda, y configurar dos veces no repite las lineas."""
     stream = io.StringIO()
     configure_logging("WARNING", stream=stream)
     configure_logging("WARNING", stream=stream)  # llamarla dos veces no duplica lineas
@@ -159,6 +169,7 @@ def test_configure_logging_honours_the_level_and_does_not_duplicate_handlers():
 
 
 def test_configure_logging_does_not_touch_the_root_logger():
+    """22/10/2026 - La configuracion no deja efectos globales: el logger raiz queda exactamente como estaba."""
     root_handlers = list(logging.getLogger().handlers)
     root_level = logging.getLogger().level
 
@@ -169,6 +180,7 @@ def test_configure_logging_does_not_touch_the_root_logger():
 
 
 def test_create_app_applies_the_log_level_from_the_environment(monkeypatch):
+    """22/10/2026 - create_app lee LOG_LEVEL del entorno y lo aplica al logger `helpdesk`."""
     monkeypatch.setenv("LOG_LEVEL", "WARNING")
 
     create_app(database_url=UNREACHABLE_DB)
@@ -180,6 +192,7 @@ def test_create_app_applies_the_log_level_from_the_environment(monkeypatch):
 
 
 def test_every_request_logs_method_path_status_and_duration(caplog):
+    """22/10/2026 - Cada peticion deja una sola linea con metodo, ruta, estado y duracion (la salud no, va en DEBUG)."""
     with TestClient(create_app(database_url=UNREACHABLE_DB)) as client:
         with caplog.at_level(logging.INFO, logger="helpdesk.request"):
             client.get("/api/health")  # la salud se registra en DEBUG (Docker la consulta cada 10 s)
@@ -192,6 +205,7 @@ def test_every_request_logs_method_path_status_and_duration(caplog):
 
 
 def test_health_checks_are_logged_at_debug_only(caplog):
+    """22/10/2026 - La salud se registra en DEBUG para que Docker, que la consulta cada 10 s, no tape los demas logs."""
     with TestClient(create_app(database_url=UNREACHABLE_DB)) as client:
         with caplog.at_level(logging.DEBUG, logger="helpdesk.request"):
             client.get("/api/health")
@@ -203,6 +217,7 @@ def test_health_checks_are_logged_at_debug_only(caplog):
 
 
 def test_logs_never_contain_tokens_passwords_headers_or_query_strings(committed_db, caplog):
+    """22/10/2026 - Prueba de seguridad del log: ni el token, ni la contrasena (buena o mala), ni encabezados, ni la query string aparecen."""
     with TestClient(create_app()) as client:
         # 22/10/2026 - Solo miro los loggers de MI aplicacion: httpx (el cliente de la prueba) registra
         # la URL completa de lo que pide, y eso no es log del servidor.

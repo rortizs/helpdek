@@ -39,6 +39,7 @@ def _login(client: TestClient, email: str) -> dict[str, str]:
 
 
 def test_a_ticket_goes_from_creation_to_resolution_through_every_layer(committed_db, caplog):
+    """22/10/2026 - El recorrido completo de un ticket: login, crear, asignar, comentar, cambiar estado y avisos, mas lo que queda en el log."""
     with TestClient(create_app()) as client, caplog.at_level(logging.INFO, logger="helpdesk"):
         assert client.get("/api/health").json() == {"status": "ok"}  # la API ve la base
         requester = _login(client, "requester@example.com")
@@ -74,6 +75,7 @@ def test_a_ticket_goes_from_creation_to_resolution_through_every_layer(committed
 
 
 def test_what_one_process_confirms_another_process_can_read(committed_db):
+    """22/10/2026 - Un dato confirmado por una aplicacion lo lee otra con otro pool: llego de verdad a PostgreSQL."""
     # Dos aplicaciones = dos pools de conexiones distintos (como dos reinicios del servidor): si el dato se ve
     # desde la segunda, de verdad llego a PostgreSQL y no se quedo en la memoria de la primera.
     with TestClient(create_app()) as first:
@@ -87,6 +89,7 @@ def test_what_one_process_confirms_another_process_can_read(committed_db):
 
 
 def test_a_requester_cannot_reach_another_requesters_ticket(committed_db):
+    """22/10/2026 - La regla de permisos se cumple de punta a punta: el ticket de otra persona responde 404."""
     with TestClient(create_app()) as client:
         created = client.post("/api/tickets", headers=_login(client, "requester@example.com"), json=NEW_TICKET)
 
@@ -97,6 +100,7 @@ def test_a_requester_cannot_reach_another_requesters_ticket(committed_db):
 
 
 def test_the_web_client_and_the_api_are_served_by_the_same_process(committed_db):
+    """22/10/2026 - El mismo proceso entrega el cliente (con su CSP) y la API, y la API sigue exigiendo token."""
     with TestClient(create_app()) as client:
         page = client.get("/app/")
         login_script = client.get("/app/js/pages/login.js")

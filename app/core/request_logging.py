@@ -29,6 +29,7 @@ class RequestLogMiddleware:
     """22/10/2026 - Mide cada peticion HTTP y escribe su linea de log al terminar."""
 
     def __init__(self, app: ASGIApp) -> None:
+        """22/10/2026 - Guarda la aplicacion que envuelve; el middleware no tiene mas estado."""
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -41,6 +42,7 @@ class RequestLogMiddleware:
         status = 500  # si la ruta revienta antes de responder, eso es lo que el cliente recibe
 
         async def send_and_remember_status(message: Message) -> None:
+            """22/10/2026 - Deja pasar el mensaje tal cual y se queda con el codigo de estado de la respuesta."""
             nonlocal status
             if message["type"] == "http.response.start":
                 status = message["status"]
