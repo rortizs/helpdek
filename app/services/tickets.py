@@ -1,5 +1,15 @@
+"""22/10/2026 - Reglas de negocio de los tickets.
+
+TicketService no sabe donde se guardan los datos ni a quien se avisa: recibe un
+repositorio y un notifier. Los ids los asigna el repositorio al guardar, por eso
+el servicio ya no lleva contadores propios (semana 13).
+"""
+
+from __future__ import annotations
+
 from datetime import datetime
 
+from app.domain.clock import now
 from app.domain.errors import (
     PermissionDeniedError,
     TicketNotFoundError,
@@ -16,6 +26,8 @@ from app.services.users import UserService
 
 
 class TicketService:
+    """22/10/2026 - Casos de uso de tickets: crear, asignar, comentar, cambiar estado y prioridad."""
+
     def __init__(
         self,
         repository: TicketRepository,
@@ -25,8 +37,6 @@ class TicketService:
         self._repository = repository
         self._users = users
         self._notifier = notifier or NullNotifier()
-        self._next_comment_id = 1
-        self._next_event_id = 1
 
     def create(
         self,
@@ -47,7 +57,6 @@ class TicketService:
         )
 
         ticket = Ticket(
-            id=self._repository.next_id(),
             title=trimmed_title,
             description=description,
             category=category,
@@ -60,6 +69,7 @@ class TicketService:
             user_id=resolved_requester_id,
             title="ticket_created",
             message=f"Ticket #{stored.id} was created",
+            ticket_id=stored.id,
         )
         return stored
 
@@ -123,10 +133,12 @@ class TicketService:
             actor_id=actor.id if actor is not None else technician_id,
             detail=f"assigned to {technician.name}",
         )
+        self._repository.update(ticket)
         self._notify(
             user_id=technician_id,
             title="ticket_assigned",
             message=f"Ticket #{ticket.id} was assigned to you",
+            ticket_id=ticket.id,
         )
         return ticket
 
@@ -155,12 +167,10 @@ class TicketService:
             raise ValidationError("comment body is required", field="body")
 
         comment = Comment(
-            id=self._next_comment_id,
             ticket_id=ticket_id,
             author_id=resolved_author_id,
             body=trimmed_body,
         )
-        self._next_comment_id += 1
         ticket.comments.append(comment)
         ticket.updated_at = self._now()
         self._record_history(
@@ -169,16 +179,50 @@ class TicketService:
             actor_id=resolved_author_id,
             detail="comment added",
         )
+        self._repository.update(ticket)
         if resolved_author_id != ticket.requester_id:
             self._notify(
                 user_id=ticket.requester_id,
                 title="ticket_commented",
                 message=f"Ticket #{ticket.id} has a new comment",
+                ticket_id=ticket.id,
             )
         return comment
 
     def add_comment(self, ticket_id: int, author_id: int, body: str) -> Comment:
         return self.comment(ticket_id=ticket_id, author_id=author_id, body=body)
+
+    # 22/10/2026 - Nuevo caso de uso de la semana 13: cambiar la prioridad. La base
+    # recalcula due_at con su trigger y update() me devuelve el valor nuevo.
+    def change_priority(
+        self,
+        ticket_id: int,
+        new_priority: str,
+        actor: User,
+    ) -> Ticket:
+        ticket = self.require(ticket_id)
+        self._ensure_open(ticket)
+        if not actor.is_staff:
+            raise PermissionDeniedError(
+                "Only staff users can change ticket priority",
+                actor_id=actor.id,
+                ticket_id=ticket_id,
+            )
+        if new_priority not in PRIORITIES:
+            raise ValidationError("priority is invalid", field="priority")
+
+        previous_priority = ticket.priority
+        ticket.priority = new_priority
+        ticket.updated_at = self._now()
+        self._record_history(
+            ticket=ticket,
+            event_type="priority_changed",
+            actor_id=actor.id,
+            detail=f"{previous_priority} -> {new_priority}",
+        )
+        # update() devuelve al ticket el due_at que recalculo el trigger de la base.
+        self._repository.update(ticket)
+        return ticket
 
     def change_status(
         self,
@@ -205,10 +249,12 @@ class TicketService:
             actor_id=actor.id,
             detail=ticket.status.value,
         )
+        self._repository.update(ticket)
         self._notify(
             user_id=ticket.requester_id,
             title="ticket_status_changed",
             message=f"Ticket #{ticket.id} changed to {ticket.status.value}",
+            ticket_id=ticket.id,
         )
         return ticket
 
@@ -241,10 +287,12 @@ class TicketService:
             actor_id=resolved_requester_id,
             detail="cancelled",
         )
+        self._repository.update(ticket)
         self._notify(
             user_id=resolved_requester_id,
             title="ticket_cancelled",
             message=f"Ticket #{ticket.id} was cancelled",
+            ticket_id=ticket.id,
         )
         return ticket
 
@@ -256,13 +304,11 @@ class TicketService:
         detail: str,
     ) -> HistoryEvent:
         event = HistoryEvent(
-            id=self._next_event_id,
             ticket_id=ticket.id,
             actor_id=actor_id,
             event_type=event_type,
             detail=detail,
         )
-        self._next_event_id += 1
         ticket.history.append(event)
         return event
 
@@ -305,8 +351,9 @@ class TicketService:
         user_id: int,
         title: str,
         message: str,
+        ticket_id: int | None = None,
     ) -> None:
-        self._notifier.notify(user_id, title, message)
+        self._notifier.notify(user_id, title, message, ticket_id=ticket_id)
 
     def _now(self) -> datetime:
-        return datetime.now().astimezone()
+        return now()

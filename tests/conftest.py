@@ -1,7 +1,21 @@
+"""22/10/2026 - Fixtures compartidas.
+
+Aqui dejo dos mundos de prueba: servicios sobre repositorios en memoria (rapidos,
+sin base) y sesiones sobre PostgreSQL real, siempre contra `helpdesk_test`.
+La base `helpdesk` guarda la practica de los alumnos y nunca se toca desde aqui.
+"""
+
+import os
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import Session
 
+from app.core.database import dispose_engine, init_engine
 from app.models.enums import Role
 from app.repositories.memory import InMemoryTicketRepository, InMemoryUserRepository
 from app.services.notifications import RecordingNotifier
@@ -48,3 +62,96 @@ def world(users, tickets, notifier):
         technician=users.by_email("tomas@school.edu"),
         supervisor=users.by_email("carla@school.edu"),
     )
+
+
+# --- PostgreSQL real para las pruebas de integracion (semana 11) -------------
+# Una base DEDICADA (`helpdesk_test`) que se recrea una vez por sesion de pytest
+# con los mismos scripts que usa el curso. Nunca se toca la base `helpdesk`,
+# que guarda los datos de practica de los alumnos.
+
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql+psycopg://helpdesk:helpdesk@localhost:5433/helpdesk_test",
+)
+SQL_SCRIPTS = ("database.sql", "functions_triggers.sql", "seed.sql")
+SQL_DIR = Path(__file__).resolve().parent.parent / "docs" / "database"
+
+
+def _recreate_test_database(url) -> None:
+    """Borra y crea la base de pruebas desde una conexion admin a `postgres`."""
+    admin_engine = create_engine(
+        url.set(database="postgres"), isolation_level="AUTOCOMMIT"
+    )
+    with admin_engine.connect() as admin:
+        admin.exec_driver_sql(f'DROP DATABASE IF EXISTS "{url.database}" WITH (FORCE)')
+        admin.exec_driver_sql(f'CREATE DATABASE "{url.database}"')
+    admin_engine.dispose()
+
+
+def _load_scripts(engine, scripts=SQL_SCRIPTS) -> None:
+    """Ejecuta cada script completo (sin parametros) en el orden del curso."""
+    raw = engine.raw_connection()
+    try:
+        for name in scripts:
+            raw.cursor().execute((SQL_DIR / name).read_text(encoding="utf-8"))
+        raw.commit()
+    finally:
+        raw.close()
+
+
+@pytest.fixture(scope="session")
+def pg_engine():
+    # 22/10/2026 - Recreo `helpdesk_test` una vez por sesion desde docs/database y me
+    # niego a correr si alguien apunta TEST_DATABASE_URL a la base real.
+    url = make_url(TEST_DATABASE_URL)
+    if url.database == "helpdesk":
+        raise RuntimeError("TEST_DATABASE_URL no puede apuntar a la base `helpdesk`")
+    try:
+        _recreate_test_database(url)
+    except OperationalError:
+        pytest.skip(f"PostgreSQL no disponible en {url.render_as_string()}")
+
+    engine = create_engine(url)
+    _load_scripts(engine)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def db(pg_engine):
+    """Sesion por prueba: todo lo escrito (incluso con commit) se revierte al final."""
+    connection = pg_engine.connect()
+    outer = connection.begin()
+    session = Session(
+        bind=connection,
+        join_transaction_mode="create_savepoint",
+        expire_on_commit=False,
+    )
+    yield session
+    session.close()
+    outer.rollback()
+    connection.close()
+
+
+@pytest.fixture
+# 22/10/2026 - Esta fixture SI confirma: la uso para probar commit y rollback reales.
+def committed_db(pg_engine):
+    """Para probar commit/rollback REALES (semana 13).
+
+    `db` nunca confirma nada: lo revierte todo al final. Aqui `session_scope()`
+    si hace commit, asi que antes y despues de cada prueba se vacian las tablas
+    y se vuelve a cargar el seed (los ids vuelven a empezar en 1).
+    """
+    def reset() -> None:
+        with pg_engine.begin() as connection:
+            connection.exec_driver_sql(
+                "TRUNCATE users, tickets, comments, history, notifications, articles "
+                "RESTART IDENTITY CASCADE"
+            )
+        _load_scripts(pg_engine, scripts=("seed.sql",))
+
+    reset()
+    init_engine(TEST_DATABASE_URL)
+    yield
+    dispose_engine()
+    reset()

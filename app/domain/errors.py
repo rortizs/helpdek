@@ -25,6 +25,14 @@ class ValidationError(DomainError):
         super().__init__(message, **properties)
 
 
+class ConflictError(ValidationError):
+    """22/10/2026 - Agregue este error de dominio para que la API no muestre el
+    IntegrityError de PostgreSQL: se lanza cuando la base rechaza un dato que
+    choca con una fila existente (por ejemplo un email repetido)."""
+
+    code = "conflict"
+
+
 class NotFoundError(DomainError):
     """Raised when a required entity does not exist."""
 

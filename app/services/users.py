@@ -5,6 +5,8 @@ from app.repositories.base import UserRepository
 
 
 class UserService:
+    """22/10/2026 - Registro y consulta de usuarios; el id lo asigna el repositorio."""
+
     def __init__(self, repository: UserRepository) -> None:
         self._repository = repository
 
@@ -28,7 +30,6 @@ class UserService:
             )
 
         user = User(
-            id=self._repository.next_id(),
             name=name,
             email=normalized_email,
             role=Role(role),

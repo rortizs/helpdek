@@ -105,8 +105,13 @@ class AlternateTicketRepository(TicketRepository):
         self._next_id = 1
 
     def add(self, ticket):
+        ticket.id = self._next_id
+        self._next_id += 1
         self._tickets[ticket.id] = ticket
-        self._next_id = max(self._next_id, ticket.id + 1)
+        return ticket
+
+    def update(self, ticket):
+        self._tickets[ticket.id] = ticket
         return ticket
 
     def by_id(self, ticket_id):
@@ -123,10 +128,21 @@ class AlternateTicketRepository(TicketRepository):
             tickets = [ticket for ticket in tickets if ticket.requester_id == requester_id]
         return list(tickets)
 
-    def next_id(self):
-        ticket_id = self._next_id
-        self._next_id += 1
-        return ticket_id
+    # 22/10/2026 - NUEVO (semana 13): el contrato crecio, el doble tambien.
+    def by_category(self, category):
+        return [t for t in self._tickets.values() if t.category == category]
+
+    def count_by_status(self):
+        counts = {}
+        for t in self._tickets.values():
+            counts[t.status.value] = counts.get(t.status.value, 0) + 1
+        return counts
+
+    def commit(self):
+        pass
+
+    def rollback(self):
+        pass
 
 
 def test_ticket_service_accepts_alternate_repository_implementation(users):
