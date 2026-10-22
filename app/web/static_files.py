@@ -52,6 +52,7 @@ class ClientStaticFiles(StaticFiles):
     """22/10/2026 - StaticFiles + encabezados de seguridad en cada respuesta con archivo."""
 
     def file_response(self, *args, **kwargs) -> Response:
+        """22/10/2026 - Starlette arma la respuesta del archivo; yo le sumo los encabezados antes de enviarla."""
         response = super().file_response(*args, **kwargs)
         response.headers.update(SECURITY_HEADERS)
         return response

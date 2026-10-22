@@ -1,0 +1,30 @@
+<!doctype html>
+<!--
+  22/10/2026 - Richard Ortiz: DETALLE de un ticket (semana 16). El numero llega en la direccion (ticket.html?id=5).
+  Carga GET /api/tickets/{id} (que ya incluye comentarios e historial) y muestra solo las acciones que el rol
+  del usuario puede hacer: el personal asigna, cambia estado y prioridad; el solicitante dueno del ticket lo
+  cancela; todos comentan mientras el ticket siga abierto. Aunque un boton este oculto, la API vuelve a validar
+  el permiso y esta pagina sabe mostrar un 403. Logica en js/pages/ticket.js.
+-->
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ticket · HelpDesk EDU</title>
+  <link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Saltar al contenido</a>
+  <header id="site-nav"></header>
+  <main id="main" class="container py-4">
+    <h1 id="page-title" tabindex="-1" class="h3 mb-3">Ticket</h1>
+    <div id="alert-region" aria-live="assertive" aria-atomic="true"></div>
+    <noscript><div class="alert alert-warning" role="alert">Este cliente necesita JavaScript para funcionar.</div></noscript>
+    <p><a href="tickets.html">← Volver a la lista</a></p>
+    <div id="ticket-view"></div>
+  </main>
+  <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
+  <script type="module" src="js/pages/ticket.js"></script>
+</body>
+</html>

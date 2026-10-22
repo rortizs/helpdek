@@ -1,0 +1,159 @@
+/*
+ * 22/10/2026 - Richard Ortiz: estilos propios del cliente. Bootstrap pone el 90 %; aqui solo agrego identidad
+ * (colores, tipografia), el enlace "Saltar al contenido", las insignias de estado/prioridad y detalles de lectura.
+ * Los colores estan elegidos para cumplir contraste WCAG AA (texto normal >= 4.5:1); las razones medidas estan
+ * en docs/decisions/0006-cliente-web-semana-16.md. No hay fuentes externas: uso las del sistema (cero descargas).
+ */
+
+:root {
+  --app-ink: #14323a;          /* texto principal sobre fondo claro: contraste 12.5:1 */
+  --app-teal: #0b5c6b;         /* color de marca (botones, enlaces): 7.6:1 con blanco */
+  --app-teal-dark: #083f4a;
+  --app-paper: #f3f6f7;        /* fondo de pagina */
+  --bs-body-color: var(--app-ink);
+  --bs-body-bg: var(--app-paper);
+  /* Bootstrap pinta los enlaces con la version RGB de la variable: hay que cambiar esa (el azul por defecto da 4.2:1). */
+  --bs-link-color-rgb: 11, 92, 107;
+  --bs-link-hover-color-rgb: 8, 63, 74;
+  --bs-font-sans-serif: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Roboto, sans-serif;
+}
+
+body {
+  min-height: 100vh;
+}
+
+.app-brand {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--app-teal-dark);
+}
+
+.app-navbar {
+  background: linear-gradient(100deg, #0a2f38 0%, #0b5c6b 100%);
+  /* El gris translucido de Bootstrap (55 %) no llega a 4.5:1 sobre este fondo; subo la opacidad al 88 %. */
+  --bs-navbar-color: rgba(255, 255, 255, 0.88);
+  --bs-navbar-hover-color: #fff;
+  --bs-navbar-active-color: #fff;
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--app-teal);
+  --bs-btn-border-color: var(--app-teal);
+  --bs-btn-hover-bg: var(--app-teal-dark);
+  --bs-btn-hover-border-color: var(--app-teal-dark);
+  --bs-btn-active-bg: var(--app-teal-dark);
+  --bs-btn-active-border-color: var(--app-teal-dark);
+  --bs-btn-disabled-bg: var(--app-teal);
+  --bs-btn-disabled-border-color: var(--app-teal);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--app-teal);
+  --bs-btn-border-color: var(--app-teal);
+  --bs-btn-hover-bg: var(--app-teal);
+  --bs-btn-hover-border-color: var(--app-teal);
+  --bs-btn-active-bg: var(--app-teal-dark);
+  --bs-btn-active-border-color: var(--app-teal-dark);
+  --bs-btn-disabled-color: var(--app-teal);
+  --bs-btn-disabled-border-color: var(--app-teal);
+}
+
+/* Rojo de error mas oscuro que el de Bootstrap (#dc3545 da ~4.0:1 sobre el fondo): este llega a 6.5:1. */
+:root {
+  --bs-form-invalid-color: #b42318;
+  --bs-form-invalid-border-color: #b42318;
+}
+
+.btn-outline-danger {
+  --bs-btn-color: #b42318;
+  --bs-btn-border-color: #b42318;
+  --bs-btn-hover-bg: #b42318;
+  --bs-btn-hover-border-color: #b42318;
+  --bs-btn-active-bg: #8f1c13;
+  --bs-btn-active-border-color: #8f1c13;
+}
+
+.badge-overdue { background-color: #b42318; color: #fff; }
+
+.page-link {
+  --bs-pagination-color: var(--app-teal);
+  --bs-pagination-hover-color: var(--app-teal-dark);
+}
+
+/* Enlace para saltar el menu: invisible hasta que recibe el foco con Tab (primer elemento de cada pagina). */
+.skip-link {
+  position: absolute;
+  left: 0.5rem;
+  top: -4rem;
+  z-index: 2000;
+  padding: 0.5rem 1rem;
+  background: #fff;
+  color: var(--app-teal-dark);
+  border: 2px solid var(--app-teal);
+  border-radius: 0.375rem;
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+/* Foco visible y consistente para teclado (Bootstrap ya lo da en controles; lo reforzamos en tarjetas y titulos). */
+:focus-visible {
+  outline: 3px solid #f2a900;
+  outline-offset: 2px;
+}
+
+/* El titulo recibe el foco por codigo (tabindex="-1") al navegar: no hace falta dibujarle un recuadro. */
+h1:focus,
+h1:focus-visible,
+h2[tabindex="-1"]:focus,
+h2[tabindex="-1"]:focus-visible,
+#results-summary:focus {
+  outline: none;
+}
+
+.pre-wrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ticket-card {
+  border-left: 4px solid var(--app-teal);
+}
+
+.comment-list .comment + .comment {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--bs-border-color);
+}
+
+/* Insignias de estado y prioridad: fondo + texto con contraste >= 4.5:1; el TEXTO siempre acompana al color. */
+.badge-status-open        { background-color: #0b5c6b; color: #fff; }
+.badge-status-in_progress { background-color: #b45309; color: #fff; }
+.badge-status-resolved    { background-color: #2e6b34; color: #fff; }
+.badge-status-closed      { background-color: #4b5563; color: #fff; }
+.badge-status-cancelled   { background-color: #e5e7eb; color: #374151; }
+
+.badge-priority-low      { background-color: #e0f2f1; color: #0b4a45; }
+.badge-priority-medium   { background-color: #fef3c7; color: #6b4a00; }
+.badge-priority-high     { background-color: #ffedd5; color: #8a3a00; }
+.badge-priority-critical { background-color: #b42318; color: #fff; }
+
+/* Telefono: areas tactiles comodas (>= 44 px de alto) en botones y controles de formulario. */
+@media (max-width: 575.98px) {
+  .btn,
+  .form-control,
+  .form-select {
+    min-height: 44px;
+  }
+}
+
+/* Respeto la preferencia del sistema: si pidio menos movimiento, nada se anima. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}
