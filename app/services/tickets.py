@@ -7,6 +7,7 @@ el servicio ya no lleva contadores propios (semana 13).
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime
 
 from app.domain.clock import now
@@ -15,28 +16,55 @@ from app.domain.errors import (
     TicketNotFoundError,
     ValidationError,
 )
+from app.domain.events import (
+    TicketAssigned,
+    TicketCancelled,
+    TicketCommented,
+    TicketCreated,
+    TicketEvent,
+    TicketStatusChanged,
+)
 from app.domain.workflow import assert_transition
 from app.models.assignments import Assignment
 from app.models.comments import Comment
 from app.models.entities import HistoryEvent, Ticket, User
 from app.models.enums import CATEGORIES, PRIORITIES, Role, TicketStatus
 from app.repositories.base import TicketPage, TicketQuery, TicketRepository
-from app.services.notifications import Notifier, NullNotifier
+from app.services.events import EventPublisher, TicketEventSubscriber
+from app.services.notifications import Notifier, NotifierSubscriber, NullNotifier
 from app.services.users import UserService
 
 
 class TicketService:
-    """22/10/2026 - Casos de uso de tickets: crear, asignar, comentar, cambiar estado y prioridad."""
+    """22/10/2026 - Casos de uso de tickets: crear, asignar, comentar, cambiar estado y prioridad.
+
+    Semana 15: ya no llama al notificador directamente. Cada caso de uso publica un
+    evento de dominio y quien quiera reaccionar (avisos, auditoria...) se suscribe.
+    """
 
     def __init__(
         self,
         repository: TicketRepository,
         users: UserService,
         notifier: Notifier | None = None,
+        subscribers: Iterable[TicketEventSubscriber] = (),
     ) -> None:
         self._repository = repository
         self._users = users
-        self._notifier = notifier or NullNotifier()
+        self._events = EventPublisher()
+        # 22/10/2026 - Compatibilidad: el parametro `notifier` de las semanas 7-13
+        # sigue funcionando; ahora solo se envuelve como un suscriptor mas.
+        self._events.subscribe(NotifierSubscriber(notifier or NullNotifier()))
+        for subscriber in subscribers:
+            self._events.subscribe(subscriber)
+
+    def subscribe(self, subscriber: TicketEventSubscriber) -> None:
+        """22/10/2026 - Agrega un suscriptor despues de construir el servicio."""
+        self._events.subscribe(subscriber)
+
+    def unsubscribe(self, subscriber: TicketEventSubscriber) -> None:
+        """22/10/2026 - Da de baja un suscriptor."""
+        self._events.unsubscribe(subscriber)
 
     def create(
         self,
@@ -65,11 +93,12 @@ class TicketService:
             status=TicketStatus(status),
         )
         stored = self._repository.add(ticket)
-        self._notify(
-            user_id=resolved_requester_id,
-            title="ticket_created",
-            message=f"Ticket #{stored.id} was created",
-            ticket_id=stored.id,
+        self._publish(
+            TicketCreated(
+                ticket_id=stored.id,
+                actor_id=resolved_requester_id,
+                requester_id=resolved_requester_id,
+            )
         )
         return stored
 
@@ -175,11 +204,13 @@ class TicketService:
             detail=f"assigned to {technician.name}",
         )
         self._repository.update(ticket)
-        self._notify(
-            user_id=technician_id,
-            title="ticket_assigned",
-            message=f"Ticket #{ticket.id} was assigned to you",
-            ticket_id=ticket.id,
+        self._publish(
+            TicketAssigned(
+                ticket_id=ticket.id,
+                actor_id=actor.id if actor is not None else technician_id,
+                requester_id=ticket.requester_id,
+                technician_id=technician_id,
+            )
         )
         return ticket
 
@@ -224,13 +255,14 @@ class TicketService:
             detail="comment added",
         )
         self._repository.update(ticket)
-        if resolved_author_id != ticket.requester_id:
-            self._notify(
-                user_id=ticket.requester_id,
-                title="ticket_commented",
-                message=f"Ticket #{ticket.id} has a new comment",
+        self._publish(
+            TicketCommented(
                 ticket_id=ticket.id,
+                actor_id=resolved_author_id,
+                requester_id=ticket.requester_id,
+                comment_id=comment.id,
             )
+        )
         return comment
 
     def add_comment(self, ticket_id: int, author_id: int, body: str) -> Comment:
@@ -294,11 +326,13 @@ class TicketService:
             detail=ticket.status.value,
         )
         self._repository.update(ticket)
-        self._notify(
-            user_id=ticket.requester_id,
-            title="ticket_status_changed",
-            message=f"Ticket #{ticket.id} changed to {ticket.status.value}",
-            ticket_id=ticket.id,
+        self._publish(
+            TicketStatusChanged(
+                ticket_id=ticket.id,
+                actor_id=actor.id,
+                requester_id=ticket.requester_id,
+                new_status=ticket.status,
+            )
         )
         return ticket
 
@@ -332,11 +366,12 @@ class TicketService:
             detail="cancelled",
         )
         self._repository.update(ticket)
-        self._notify(
-            user_id=resolved_requester_id,
-            title="ticket_cancelled",
-            message=f"Ticket #{ticket.id} was cancelled",
-            ticket_id=ticket.id,
+        self._publish(
+            TicketCancelled(
+                ticket_id=ticket.id,
+                actor_id=resolved_requester_id,
+                requester_id=ticket.requester_id,
+            )
         )
         return ticket
 
@@ -394,14 +429,9 @@ class TicketService:
         if priority not in PRIORITIES:
             raise ValidationError("priority is invalid", field="priority")
 
-    def _notify(
-        self,
-        user_id: int,
-        title: str,
-        message: str,
-        ticket_id: int | None = None,
-    ) -> None:
-        self._notifier.notify(user_id, title, message, ticket_id=ticket_id)
+    def _publish(self, event: TicketEvent) -> None:
+        """22/10/2026 - Unico punto por donde sale un evento hacia los suscriptores."""
+        self._events.publish(event)
 
     def _now(self) -> datetime:
         return now()

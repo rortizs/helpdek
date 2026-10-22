@@ -24,7 +24,7 @@ from app.repositories.memory import InMemoryTicketRepository, InMemoryUserReposi
 from app.services.notifications import RecordingNotifier
 from app.services.tickets import TicketService
 from app.services.users import UserService
-from tests.helpers import seeded_password_hashes
+from tests.helpers import assert_is_test_database, seeded_password_hashes
 
 
 @pytest.fixture
@@ -77,6 +77,13 @@ TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
     "postgresql+psycopg://helpdesk:helpdesk@localhost:5433/helpdesk_test",
 )
+# 22/10/2026 - Guardia de la semana 15. Cada app crea ahora su propio engine desde
+# DATABASE_URL; si una prueba olvidara pasar la URL, usaria la base `helpdesk` de los
+# alumnos y la contaminaria. Por eso (1) rechazo cualquier TEST_DATABASE_URL que no sea
+# una base de pruebas y (2) FUERZO DATABASE_URL a la base de pruebas durante toda la sesion.
+assert_is_test_database(TEST_DATABASE_URL)
+os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+
 SQL_SCRIPTS = ("database.sql", "functions_triggers.sql", "seed.sql")
 SQL_DIR = Path(__file__).resolve().parent.parent / "docs" / "database"
 

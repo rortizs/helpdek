@@ -5,9 +5,13 @@ mismo contrato que los repositorios SQLAlchemy, incluidos los ids asignados por
 el almacenamiento (un contador por tabla, como un SERIAL).
 """
 
+from dataclasses import replace
+
+from app.domain.clock import now
 from app.models.entities import Ticket, User
 from app.models.enums import TicketStatus
 from app.repositories.base import TicketPage, TicketQuery, TicketRepository, UserRepository
+from app.services.notifications import Notification, NotificationRepository
 
 
 class InMemoryTicketRepository(TicketRepository):
@@ -129,3 +133,38 @@ class InMemoryUserRepository(UserRepository):
 
     def set_password_hash(self, user_id: int, password_hash: str) -> None:
         self._password_hashes[user_id] = password_hash
+
+
+class InMemoryNotificationRepository(NotificationRepository):
+    """22/10/2026 - Bandeja de avisos en memoria (semana 15).
+
+    La necesite para demostrar la inyeccion de dependencias: con ella la fachada
+    completa corre en una prueba sin PostgreSQL. Hace lo mismo que la tabla
+    `notifications`: asigna un id propio y marca la fecha de lectura.
+    """
+
+    def __init__(self) -> None:
+        self._items: list[Notification] = []
+        self._next_id = 1
+
+    def add(self, notification: Notification) -> Notification:
+        stored = replace(
+            notification,
+            id=self._next_id,
+            created_at=notification.created_at or now(),
+        )
+        self._next_id += 1
+        self._items.append(stored)
+        return stored
+
+    def unread_for(self, user_id: int) -> list[Notification]:
+        unread = [n for n in self._items if n.user_id == user_id and n.read_at is None]
+        return sorted(unread, key=lambda n: (n.created_at, n.id), reverse=True)
+
+    def mark_all_read(self, user_id: int) -> int:
+        updated = 0
+        for index, item in enumerate(self._items):
+            if item.user_id == user_id and item.read_at is None:
+                self._items[index] = replace(item, read_at=now())
+                updated += 1
+        return updated

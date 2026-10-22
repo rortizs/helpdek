@@ -40,3 +40,14 @@ Las pruebas de integracion usan la base dedicada `helpdesk_test`, que se recrea 
 | `app/api`, `app/schemas`, `app/main.py` | Rutas HTTP, esquemas Pydantic y fabrica de la app |
 | `app/core` | Configuracion, base de datos, seguridad (hash y JWT) |
 | `docs/database` | Esquema, triggers, seed y consultas SQL |
+| `docs/decisions` | ADR: decisiones de arquitectura con su problema, patron y limites |
+
+## Patrones (semana 15)
+
+22/10/2026 - Aplicados solo donde resuelven un problema real (ver `docs/decisions/0005-patrones-semana-15.md`):
+
+- **Observer**: `TicketService` publica eventos (`app/domain/events.py`); avisos y auditoria son suscriptores.
+- **Facade**: las rutas hablan con `HelpDeskFacade` (`app/services/helpdesk.py`).
+- **Inyeccion de dependencias**: `Depends` + `app.dependency_overrides` para cambiar piezas en las pruebas.
+- **Singleton (critica)**: el engine ya no es global; lo posee cada aplicacion (`app.state.database`).
+- **Decorator**: no se aplico, y el ADR explica por que.

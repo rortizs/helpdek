@@ -1,10 +1,13 @@
-"""22/10/2026 - Rutas de usuarios. Mismo patron que tickets: la ruta solo traduce, el servicio decide."""
+"""22/10/2026 - Rutas de usuarios. Mismo patron que tickets: la ruta solo traduce, el servicio decide.
+
+Semana 15: la ruta pide el caso de uso a HelpDeskFacade, no a un servicio concreto.
+"""
 
 from __future__ import annotations
 
 from fastapi import APIRouter, status
 
-from app.api.dependencies import CurrentUser, ServicesDep
+from app.api.dependencies import CurrentUser, FacadeDep
 from app.models.enums import Role
 from app.schemas.users import UserCreate, UserOut
 
@@ -19,17 +22,17 @@ def read_me(user: CurrentUser):
 
 
 @router.get("", response_model=list[UserOut])
-def list_users(services: ServicesDep, user: CurrentUser, role: Role | None = None):
-    return services.users.list_for(user, role=role)
+def list_users(facade: FacadeDep, user: CurrentUser, role: Role | None = None):
+    return facade.list_users(user, role=role)
 
 
 @router.get("/{user_id}", response_model=UserOut)
-def read_user(user_id: int, services: ServicesDep, user: CurrentUser):
-    return services.users.require_for(user, user_id)
+def read_user(user_id: int, facade: FacadeDep, user: CurrentUser):
+    return facade.get_user(user, user_id)
 
 
 @router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def create_user(body: UserCreate, services: ServicesDep, user: CurrentUser):
-    return services.users.register_by(
+def create_user(body: UserCreate, facade: FacadeDep, user: CurrentUser):
+    return facade.create_user(
         user, email=body.email, name=body.name, role=body.role, password=body.password
     )

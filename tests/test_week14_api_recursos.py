@@ -60,7 +60,9 @@ NEW_TICKET = {
 
 @pytest.fixture
 def client(committed_db):
-    return TestClient(create_app())
+    # 22/10/2026 - Con `with`, el lifespan cierra el pool de conexiones de la app al terminar.
+    with TestClient(create_app()) as test_client:
+        yield test_client
 
 
 def assert_error(response, status_code, code):
