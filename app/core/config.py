@@ -13,7 +13,6 @@ Semana 17: se suman CORS_ORIGINS y LOG_LEVEL. Todas las variables estan document
 
 from __future__ import annotations
 
-import logging
 import os
 from dataclasses import dataclass
 
@@ -23,6 +22,7 @@ from app.domain.clock import get_app_timezone
 MIN_SECRET_LENGTH = 32
 DEFAULT_TOKEN_MINUTES = 60
 DEFAULT_LOG_LEVEL = "INFO"
+LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 
 
 # 22/10/2026 - Configuracion inmutable (frozen): nadie la cambia a mitad de una peticion.
@@ -60,11 +60,10 @@ def _cors_origins() -> tuple[str, ...]:
 
 
 def _log_level() -> str:
-    """22/10/2026 - Lee LOG_LEVEL en mayusculas y rechaza nombres que logging no conoce (un typo no debe silenciar los logs)."""
+    """22/10/2026 - Lee LOG_LEVEL en mayusculas y rechaza lo que no sea uno de los cinco niveles (un typo no debe silenciar los logs)."""
     level = os.environ.get("LOG_LEVEL", DEFAULT_LOG_LEVEL).strip().upper()
-    if level not in logging.getLevelNamesMapping() or level == "NOTSET":
-        valid = ", ".join(name for name in logging.getLevelNamesMapping() if name not in {"NOTSET", "WARN", "FATAL"})
-        raise RuntimeError(f"LOG_LEVEL='{level}' no es valido; usa uno de: {valid}.")
+    if level not in LOG_LEVELS:
+        raise RuntimeError(f"LOG_LEVEL='{level}' no es valido; usa uno de: {', '.join(LOG_LEVELS)}.")
     return level
 
 

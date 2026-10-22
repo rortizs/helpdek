@@ -64,9 +64,12 @@ def test_log_level_is_case_insensitive_and_validated(monkeypatch):
     monkeypatch.setenv("LOG_LEVEL", "debug")
     assert get_settings().log_level == "DEBUG"
 
-    monkeypatch.setenv("LOG_LEVEL", "ruidoso")
-    with pytest.raises(RuntimeError, match="LOG_LEVEL"):
-        get_settings()
+    # Solo los cinco niveles de la documentacion; alias como WARN o NOTSET (y niveles que registran otras
+    # bibliotecas, como el TRACE de uvicorn) se rechazan para que el .env diga siempre lo mismo.
+    for invalid in ("ruidoso", "WARN", "NOTSET", "FATAL", "TRACE"):
+        monkeypatch.setenv("LOG_LEVEL", invalid)
+        with pytest.raises(RuntimeError, match="LOG_LEVEL"):
+            get_settings()
 
 
 # --- CORS ----------------------------------------------------------------------------
