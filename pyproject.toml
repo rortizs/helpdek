@@ -19,3 +19,10 @@ dev = ["pytest>=8.3"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+# 22/10/2026 - Semana 17: separo las pruebas por costo. `integration` = necesita PostgreSQL real
+# (se marca sola en tests/conftest.py a toda prueba que use la base). El resto son unitarias.
+#   uv run pytest -m "not integration"    # rapidas, sin base de datos
+#   uv run pytest -m integration          # contra PostgreSQL (TEST_DATABASE_URL)
+markers = [
+    "integration: usa PostgreSQL real a traves de TEST_DATABASE_URL (pg_engine, db o committed_db)",
+]

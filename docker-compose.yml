@@ -1,21 +1,76 @@
+# 22/10/2026 - Richard Ortiz: despliegue reproducible de HelpDesk EDU (semana 17): base de datos + aplicacion.
+#
+#   cp .env.example .env        # completa SECRET_KEY y POSTGRES_PASSWORD
+#   docker compose up -d --build
+#   -> http://localhost:8000/app   (cliente web)    http://localhost:8000/docs   (OpenAPI)
+#
+# Compose lee el archivo `.env` de esta carpeta para reemplazar los ${...} de abajo. Las dos variables con `:?` son
+# OBLIGATORIAS: si faltan, `docker compose` se detiene con ese mensaje y no levanta nada a medias.
 services:
   db:
     # PostgreSQL 16 con la extension pgvector (articles.embedding)
     image: pgvector/pgvector:pg16
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: helpdesk
-      POSTGRES_USER: helpdesk
-      POSTGRES_PASSWORD: helpdesk
-      # Misma zona que la aplicacion (APP_TIMEZONE). Solo aplica con el volumen
-      # vacio: TZ fija la zona del servidor y PGTZ la de los scripts de init (seed).
-      TZ: America/Guatemala
-      PGTZ: America/Guatemala
-    ports: ["5433:5432"]
+      POSTGRES_DB: ${POSTGRES_DB:-helpdesk}
+      POSTGRES_USER: ${POSTGRES_USER:-helpdesk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env (copia .env.example)}
+      # Misma zona que la aplicacion (APP_TIMEZONE). Solo aplica con el volumen vacio: TZ fija la zona del
+      # servidor y PGTZ la de los scripts de init (seed), asi CURRENT_TIMESTAMP no queda en UTC.
+      TZ: ${APP_TIMEZONE:-America/Guatemala}
+      PGTZ: ${APP_TIMEZONE:-America/Guatemala}
+    # Solo mi maquina puede entrar a la base desde afuera (127.0.0.1). La aplicacion NO usa este puerto:
+    # habla con la base por la red interna de compose, como `db:5432`.
+    ports: ["127.0.0.1:${DB_PORT:-5433}:5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Solo se ejecutan cuando el volumen esta vacio (primera vez o tras `docker compose down -v`)
+      # Creacion CONTROLADA del esquema: estos tres scripts son la unica fuente de verdad (la app nunca hace
+      # create_all en produccion). Solo se ejecutan cuando el volumen esta vacio (primera vez o tras `down -v`);
+      # cambiar el esquema de una base que ya tiene datos es una migracion manual, ver docs/operacion/.
       - ./docs/database/database.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./docs/database/functions_triggers.sql:/docker-entrypoint-initdb.d/02-functions-triggers.sql:ro
       - ./docs/database/seed.sql:/docker-entrypoint-initdb.d/03-seed.sql:ro
+    healthcheck:
+      # -h 127.0.0.1 es importante: durante los scripts de init, PostgreSQL arranca un servidor temporal que
+      # SOLO escucha por socket; por TCP el servidor definitivo recien contesta cuando el seed ya termino.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  app:
+    build: .
+    image: helpdesk-edu:local
+    restart: unless-stopped
+    # La app arranca cuando la base ya esta sana (acepta conexiones por TCP con el seed cargado).
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # En compose la base se llama `db` (nombre del servicio), no localhost. Armo la URL con las mismas
+      # variables que usa la base, asi no hay dos contrasenas que mantener.
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-helpdesk}:${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env}@db:5432/${POSTGRES_DB:-helpdesk}
+      SECRET_KEY: ${SECRET_KEY:?define SECRET_KEY en .env (python -c "import secrets; print(secrets.token_urlsafe(48))")}
+      APP_NAME: ${APP_NAME:-HelpDesk EDU}
+      APP_TIMEZONE: ${APP_TIMEZONE:-America/Guatemala}
+      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-60}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DEBUG: ${DEBUG:-false}
+      # Los logs llevan la hora del reloj del contenedor; con TZ salen en hora local, igual que la base.
+      TZ: ${APP_TIMEZONE:-America/Guatemala}
+    ports: ["${APP_PORT:-8000}:8000"]
+    # Endurecimiento: sistema de archivos de solo lectura (la API solo escribe en /tmp), sin capacidades de
+    # Linux extra y sin posibilidad de ganar privilegios.
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    # Los logs de los contenedores crecen sin limite si no se acotan: 3 archivos de 10 MB como maximo.
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
 volumes:
   postgres_data:

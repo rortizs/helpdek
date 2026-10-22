@@ -1,0 +1,13 @@
+# 22/10/2026 - Richard Ortiz: que NO entra al contexto de construccion de Docker (semana 17).
+# Uso una lista blanca: primero excluyo TODO y despues dejo pasar solo lo que la imagen necesita. Asi un archivo
+# nuevo (un .env, un examen, un respaldo, un PDF) nunca termina dentro de una imagen por descuido.
+*
+
+# Lo unico que la imagen necesita: las dependencias bloqueadas y el codigo de la aplicacion.
+!pyproject.toml
+!uv.lock
+!app
+
+# Aun dentro de app/ no quiero caches ni compilados del equipo de quien construye.
+**/__pycache__
+**/*.pyc

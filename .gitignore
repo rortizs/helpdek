@@ -12,6 +12,11 @@ __pycache__/
 .tmp/
 openspec/
 
+# 22/10/2026 - Semana 17: los respaldos de la base (pg_dump) contienen hashes de contrasenas y datos de personas.
+# Viven en backups/ en mi maquina y nunca se suben a Git.
+backups/
+*.dump
+
 # 22/10/2026 - Richard Ortiz: este repositorio es PUBLICO y lo ven mis estudiantes. Aqui nunca se publica material
 # docente ni de evaluacion: examenes, solucionarios, guias en Word/PDF/PowerPoint y la carpeta privada. Lo bloqueo
 # con .gitignore para que un `git add .` descuidado no lo suba. Ojo: .gitignore solo afecta archivos que Git aun
