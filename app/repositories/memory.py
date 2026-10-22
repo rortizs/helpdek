@@ -5,6 +5,11 @@ mismo contrato que los repositorios SQLAlchemy, incluidos los ids asignados por
 el almacenamiento (un contador por tabla, como un SERIAL).
 """
 
+# 22/10/2026 - Agrego esta linea para que el proyecto funcione en Python 3.11 a 3.13:
+# la clase define un metodo llamado `list` y, sin ella, la anotacion `list[...]`
+# se evaluaria contra ese metodo y no contra el tipo nativo (TypeError al importar).
+from __future__ import annotations
+
 from dataclasses import replace
 
 from app.domain.clock import now
