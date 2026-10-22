@@ -12,14 +12,21 @@ from datetime import datetime
 
 from sqlalchemy import FetchedValue, ForeignKey, String, Text, func, select, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    Session,
+    mapped_column,
+    relationship,
+    selectinload,
+)
 
 from app.domain.clock import now
 from app.domain.errors import ConflictError
 from app.models.comments import Comment
 from app.models.entities import HistoryEvent, Ticket, User
 from app.models.enums import Role, TicketStatus
-from app.repositories.base import TicketRepository, UserRepository
+from app.repositories.base import TicketPage, TicketQuery, TicketRepository, UserRepository
 from app.services.notifications import Notification, NotificationRepository
 
 
@@ -197,8 +204,22 @@ class SqlAlchemyUserRepository(UserRepository):
         return _user_to_domain(row) if row else None
 
     def all(self) -> list[User]:
-        rows = self._session.scalars(select(UserORM)).all()
+        rows = self._session.scalars(select(UserORM).order_by(UserORM.id)).all()
         return [_user_to_domain(row) for row in rows]
+
+    # 22/10/2026 - El hash vive solo en la capa de persistencia: el dominio y los esquemas
+    # (User, UserOut) no lo conocen, asi que no puede salir por la API por descuido.
+    def password_hash_for(self, email: str) -> str | None:
+        return self._session.scalar(
+            select(UserORM.password_hash).where(UserORM.email == email.strip().lower())
+        )
+
+    def set_password_hash(self, user_id: int, password_hash: str) -> None:
+        row = self._session.get(UserORM, user_id)
+        if row is None:
+            raise ValueError(f"User {user_id} no existe")
+        row.password_hash = password_hash
+        self._session.flush()
 
 
 class SqlAlchemyTicketRepository(TicketRepository):
@@ -316,6 +337,37 @@ class SqlAlchemyTicketRepository(TicketRepository):
 
     def by_category(self, category: str) -> list[Ticket]:
         return self.list(category=category)
+
+    def search(self, query: TicketQuery) -> TicketPage:
+        """22/10/2026 - Todo lo hace PostgreSQL: WHERE filtra, ORDER BY ordena,
+        LIMIT/OFFSET recortan y COUNT(*) cuenta el total SIN la pagina. A Python
+        solo llega lo que se va a devolver."""
+        conditions = []
+        if query.status is not None:
+            conditions.append(TicketORM.status == TicketStatus(query.status).value)
+        if query.category is not None:
+            conditions.append(TicketORM.category == query.category)
+        if query.priority is not None:
+            conditions.append(TicketORM.priority == query.priority)
+        if query.assignee_id is not None:
+            conditions.append(TicketORM.assignee_id == query.assignee_id)
+        if query.requester_id is not None:
+            conditions.append(TicketORM.requester_id == query.requester_id)
+
+        total = self._session.scalar(
+            select(func.count()).select_from(TicketORM).where(*conditions)
+        )
+        rows = self._session.scalars(
+            select(TicketORM)
+            .where(*conditions)
+            # El id desempata fechas iguales: sin el, el orden no seria estable.
+            .order_by(TicketORM.created_at.desc(), TicketORM.id.desc())
+            .limit(query.limit)
+            .offset(query.offset)
+            # Un SELECT extra por tabla en vez de uno por ticket (N+1).
+            .options(selectinload(TicketORM.comments), selectinload(TicketORM.history))
+        ).all()
+        return TicketPage(items=[_ticket_to_domain(row) for row in rows], total=total)
 
     def count_by_status(self) -> dict[str, int]:
         """22/10/2026 - Un solo GROUP BY en la base: SELECT status, COUNT(*) ... GROUP BY status."""

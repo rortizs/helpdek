@@ -10,17 +10,21 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from app.core.database import dispose_engine, init_engine
+# Las pruebas firman tokens con su propia clave; la aplicacion real EXIGE SECRET_KEY.
+os.environ.setdefault("SECRET_KEY", "clave-solo-para-pruebas-0123456789abcdef")
+
+from app.core.database import create_app_engine, dispose_engine, init_engine
 from app.models.enums import Role
 from app.repositories.memory import InMemoryTicketRepository, InMemoryUserRepository
 from app.services.notifications import RecordingNotifier
 from app.services.tickets import TicketService
 from app.services.users import UserService
+from tests.helpers import seeded_password_hashes
 
 
 @pytest.fixture
@@ -111,7 +115,8 @@ def pg_engine():
     except OperationalError:
         pytest.skip(f"PostgreSQL no disponible en {url.render_as_string()}")
 
-    engine = create_engine(url)
+    # Misma zona que la aplicacion: el seed (CURRENT_TIMESTAMP) queda en hora local.
+    engine = create_app_engine(url)
     _load_scripts(engine)
     yield engine
     engine.dispose()
@@ -134,9 +139,10 @@ def db(pg_engine):
 
 
 @pytest.fixture
-# 22/10/2026 - Esta fixture SI confirma: la uso para probar commit y rollback reales.
 def committed_db(pg_engine):
-    """Para probar commit/rollback REALES (semana 13).
+    """22/10/2026 - Esta fixture SI confirma: la uso para probar commit y rollback reales.
+
+    Para probar commit/rollback REALES (semana 13).
 
     `db` nunca confirma nada: lo revierte todo al final. Aqui `session_scope()`
     si hace commit, asi que antes y despues de cada prueba se vacian las tablas
@@ -149,6 +155,14 @@ def committed_db(pg_engine):
                 "RESTART IDENTITY CASCADE"
             )
         _load_scripts(pg_engine, scripts=("seed.sql",))
+        # El seed trae hashes de relleno; aqui todos los usuarios reciben una
+        # contrasena conocida (tests.helpers.TEST_PASSWORD) para probar el login.
+        with pg_engine.begin() as connection:
+            for user_id, password_hash in seeded_password_hashes().items():
+                connection.execute(
+                    text("UPDATE users SET password_hash = :hash WHERE id = :id"),
+                    {"hash": password_hash, "id": user_id},
+                )
 
     reset()
     init_engine(TEST_DATABASE_URL)

@@ -7,7 +7,7 @@ el almacenamiento (un contador por tabla, como un SERIAL).
 
 from app.models.entities import Ticket, User
 from app.models.enums import TicketStatus
-from app.repositories.base import TicketRepository, UserRepository
+from app.repositories.base import TicketPage, TicketQuery, TicketRepository, UserRepository
 
 
 class InMemoryTicketRepository(TicketRepository):
@@ -67,6 +67,20 @@ class InMemoryTicketRepository(TicketRepository):
     def by_category(self, category: str) -> list[Ticket]:
         return self.list(category=category)
 
+    def search(self, query: TicketQuery) -> TicketPage:
+        """22/10/2026 - Aqui SI filtro en Python: es la version de juguete de lo que
+        SqlAlchemyTicketRepository hace con WHERE / ORDER BY / LIMIT."""
+        tickets = self.list(
+            status=query.status,
+            category=query.category,
+            priority=query.priority,
+            assignee_id=query.assignee_id,
+            requester_id=query.requester_id,
+        )
+        tickets.sort(key=lambda ticket: (ticket.created_at, ticket.id), reverse=True)
+        end = None if query.limit is None else query.offset + query.limit
+        return TicketPage(items=tickets[query.offset:end], total=len(tickets))
+
     def count_by_status(self) -> dict[str, int]:
         """22/10/2026 - Cuento en Python lo que PostgreSQL cuenta con un GROUP BY."""
         counts: dict[str, int] = {}
@@ -87,6 +101,7 @@ class InMemoryUserRepository(UserRepository):
 
     def __init__(self) -> None:
         self._items: dict[int, User] = {}
+        self._password_hashes: dict[int, str] = {}
         self._next_id = 1
 
     def add(self, user: User) -> User:
@@ -107,3 +122,10 @@ class InMemoryUserRepository(UserRepository):
 
     def all(self) -> list[User]:
         return list(self._items.values())
+
+    def password_hash_for(self, email: str) -> str | None:
+        user = self.by_email(email)
+        return self._password_hashes.get(user.id, "x") if user else None
+
+    def set_password_hash(self, user_id: int, password_hash: str) -> None:
+        self._password_hashes[user_id] = password_hash

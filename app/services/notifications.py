@@ -107,6 +107,19 @@ class NotificationRepository(ABC):
         ...
 
 
+class NotificationService:
+    """22/10/2026 - Los avisos de una persona: lo que tiene sin leer y marcarlos como leidos."""
+
+    def __init__(self, repository: NotificationRepository) -> None:
+        self._repository = repository
+
+    def unread_for(self, user_id: int) -> list[Notification]:
+        return self._repository.unread_for(user_id)
+
+    def mark_all_read(self, user_id: int) -> int:
+        return self._repository.mark_all_read(user_id)
+
+
 # El servicio sigue llamando a notify() con un codigo ("ticket_assigned") como
 # `title`; al guardar, ese codigo pasa a la columna `type` y el titulo que ve
 # el usuario es un texto legible.
