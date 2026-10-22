@@ -63,7 +63,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     # 22/10/2026 - Semana 16: monto el cliente web DESPUES de /api para que ninguna ruta de la
     # API quede tapada. html=True hace que /app/ entregue index.html (la pagina de ingreso).
     app.mount("/app", ClientStaticFiles(directory=STATIC_DIR, html=True), name="web")
-    app.add_api_route("/", redirect_to_client, include_in_schema=False)
+    app.add_api_route("/", redirect_to_client, methods=["GET", "HEAD"], include_in_schema=False)
 
     register_error_handlers(app)
     return app

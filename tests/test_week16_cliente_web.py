@@ -46,6 +46,14 @@ def test_root_redirects_to_the_client(client):
     assert response.headers["location"] == "/app/"
 
 
+# 22/10/2026 - Compruebo que HEAD / (lo que hacen curl -I y los verificadores de salud) tambien redirige y no da 405.
+def test_root_answers_head_requests_with_the_same_redirect(client):
+    response = client.head("/", follow_redirects=False)
+
+    assert response.status_code == 307
+    assert response.headers["location"] == "/app/"
+
+
 # 22/10/2026 - Compruebo que /app (sin barra final) tambien llega al cliente: los alumnos escriben la direccion a mano.
 def test_app_without_trailing_slash_redirects_to_the_client_home(client):
     response = client.get("/app", follow_redirects=False)
