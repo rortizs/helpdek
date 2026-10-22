@@ -10,17 +10,17 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Annotated, NamedTuple
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.core.database import get_session
-from app.core.security import decode_access_token
+from app.core.database import Database
 from app.core.services import build_services
 from app.domain.errors import AuthenticationError
 from app.models.entities import User
 from app.repositories.sqlalchemy import SqlAlchemyNotificationRepository, SqlAlchemyUserRepository
 from app.services.auth import AuthService
+from app.services.helpdesk import HelpDeskFacade
 from app.services.notifications import NotificationService
 from app.services.tickets import TicketService
 from app.services.users import UserService
@@ -35,9 +35,15 @@ class Services(NamedTuple):
     auth: AuthService
 
 
-def get_db() -> Iterator[Session]:
-    """22/10/2026 - La unidad de trabajo de la semana 13, entregada por peticion."""
-    yield from get_session()
+def get_db(request: Request) -> Iterator[Session]:
+    """22/10/2026 - La unidad de trabajo de la semana 13, entregada por peticion.
+
+    Semana 15: la sesion sale de la `Database` que posee ESTA aplicacion
+    (`request.app.state.database`), no de una variable global del modulo.
+    """
+    database: Database = request.app.state.database
+    with database.session_scope() as session:
+        yield session
 
 
 # scope="function": el commit/rollback ocurre al terminar la RUTA, antes de enviar
@@ -57,6 +63,24 @@ def get_services(db: DbSession) -> Services:
 ServicesDep = Annotated[Services, Depends(get_services)]
 
 
+def get_facade(services: ServicesDep) -> HelpDeskFacade:
+    """22/10/2026 - La fachada de ESTA peticion, armada sobre sus servicios.
+
+    Es el punto de inyeccion de la semana 15: las rutas piden `FacadeDep` y una
+    prueba puede reemplazar `get_facade` (o `get_services`) con
+    `app.dependency_overrides`, sin tocar ninguna ruta ni usar variables globales.
+    """
+    return HelpDeskFacade(
+        users=services.users,
+        tickets=services.tickets,
+        notifications=services.notifications,
+        auth=services.auth,
+    )
+
+
+FacadeDep = Annotated[HelpDeskFacade, Depends(get_facade)]
+
+
 # auto_error=False: el error lo lanzamos nosotros para que tenga el mismo formato
 # JSON que los demas (error / message / details). Tambien publica el esquema
 # "Bearer" en /docs, donde aparece el boton Authorize.
@@ -64,7 +88,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
-    services: ServicesDep,
+    facade: FacadeDep,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> User:
     """22/10/2026 - Quien hace la peticion, segun el token `Authorization: Bearer ...`.
@@ -75,10 +99,7 @@ def get_current_user(
     """
     if credentials is None:
         raise AuthenticationError("bearer token required")
-    user = services.users.by_id(decode_access_token(credentials.credentials))
-    if user is None:
-        raise AuthenticationError("invalid or expired token")  # mismo mensaje que un token malo
-    return user
+    return facade.user_from_token(credentials.credentials)
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
