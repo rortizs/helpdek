@@ -11,3 +11,22 @@ __pycache__/
 .codegraph/
 .tmp/
 openspec/
+
+# 22/10/2026 - Richard Ortiz: este repositorio es PUBLICO y lo ven mis estudiantes. Aqui nunca se publica material
+# docente ni de evaluacion: examenes, solucionarios, guias en Word/PDF/PowerPoint y la carpeta privada. Lo bloqueo
+# con .gitignore para que un `git add .` descuidado no lo suba. Ojo: .gitignore solo afecta archivos que Git aun
+# no sigue; lo que ya estuviera versionado habria que sacarlo aparte. Las capturas PNG del cliente
+# (docs/img/semana16/) y el resto del codigo NO estan bloqueados.
+*.pdf
+*.docx
+*.doc
+*.pptx
+*.xlsx
+*.odt
+examen*/
+*examen*
+*Examen*
+*olucionario*
+*Solucionario*
+material_docente_privado/
+.env
