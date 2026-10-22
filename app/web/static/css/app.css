@@ -74,6 +74,16 @@ body {
   --bs-btn-active-border-color: #8f1c13;
 }
 
+/* El gris de Bootstrap para los botones secundarios (#6c757d) da 4.3:1 sobre el fondo: oscurezco el texto a 7:1. */
+.btn-outline-secondary {
+  --bs-btn-color: #495057;
+  --bs-btn-border-color: #6c757d;
+  --bs-btn-hover-bg: #495057;
+  --bs-btn-hover-border-color: #495057;
+  --bs-btn-active-bg: #343a40;
+  --bs-btn-active-border-color: #343a40;
+}
+
 .badge-overdue { background-color: #b42318; color: #fff; }
 
 .page-link {
